@@ -63,7 +63,13 @@ def create_app():
     return app
 
 # Singleton app instance
-app = create_app()
+try:
+    app = create_app()
+except Exception as e:
+    import traceback
+    logging.error(f"FATAL: Failed to create app: {e}")
+    logging.error(traceback.format_exc())
+    raise e
 
 if __name__ == '__main__':
     port = int(os.environ.get('PORT', 5000))

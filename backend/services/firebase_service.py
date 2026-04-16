@@ -13,22 +13,27 @@ class FirebaseService:
         try:
             if not firebase_admin._apps:
                 # Use environment variables for production security
-                if not Config.FIREBASE_PROJECT_ID or not Config.FIREBASE_PRIVATE_KEY:
-                    logging.warning("Firebase credentials missing. Firestore/Storage disabled.")
+                if not Config.FIREBASE_PROJECT_ID or not Config.FIREBASE_PRIVATE_KEY or not Config.FIREBASE_CLIENT_EMAIL:
+                    logging.error("CRITICAL: Firebase environment variables are missing!")
+                    logging.warning("Deployment will continue but Firebase features will be disabled.")
                     return
 
-                cred_dict = {
-                    "type": "service_account",
-                    "project_id": Config.FIREBASE_PROJECT_ID,
-                    "private_key": Config.FIREBASE_PRIVATE_KEY,
-                    "client_email": Config.FIREBASE_CLIENT_EMAIL,
-                    "token_uri": "https://oauth2.googleapis.com/token",
-                }
-                
-                cred = credentials.Certificate(cred_dict)
-                firebase_admin.initialize_app(cred, {
-                    'storageBucket': Config.FIREBASE_STORAGE_BUCKET
-                })
+                try:
+                    cred_dict = {
+                        "type": "service_account",
+                        "project_id": Config.FIREBASE_PROJECT_ID,
+                        "private_key": Config.FIREBASE_PRIVATE_KEY,
+                        "client_email": Config.FIREBASE_CLIENT_EMAIL,
+                        "token_uri": "https://oauth2.googleapis.com/token",
+                    }
+                    
+                    cred = credentials.Certificate(cred_dict)
+                    firebase_admin.initialize_app(cred, {
+                        'storageBucket': Config.FIREBASE_STORAGE_BUCKET
+                    })
+                except Exception as e:
+                    logging.error(f"FATAL: Firebase credentials certificate error: {e}")
+                    return
             
             self.db = firestore.client()
             self.bucket = storage.bucket()

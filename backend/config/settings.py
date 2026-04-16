@@ -12,7 +12,7 @@ class Config:
     FIREBASE_PROJECT_ID = os.getenv('FIREBASE_PROJECT_ID')
     FIREBASE_PRIVATE_KEY = os.getenv('FIREBASE_PRIVATE_KEY', '').replace('\\n', '\n')
     FIREBASE_CLIENT_EMAIL = os.getenv('FIREBASE_CLIENT_EMAIL')
-    FIREBASE_STORAGE_BUCKET = os.getenv('FIREBASE_STORAGE_BUCKET')
+    FIREBASE_STORAGE_BUCKET = os.getenv('FIREBASE_STORAGE_BUCKET', '')
     
     # OpenAI Settings
     OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
