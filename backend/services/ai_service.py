@@ -2,6 +2,7 @@ import google.generativeai as genai
 import os
 import json
 import logging
+import time
 from config.settings import Config
 from openai import OpenAI
 
@@ -9,13 +10,29 @@ class AIService:
     def __init__(self):
         self._initialize()
         self.openai_client = None
+        self.sambanova_client = None
+        
+        # Initialize OpenAI Client
         if Config.OPENAI_API_KEY:
             try:
                 import httpx
                 self.openai_client = OpenAI(api_key=Config.OPENAI_API_KEY, http_client=httpx.Client())
-                logging.info("OpenAI Client Initialized as fallback.")
+                logging.info("OpenAI Client Initialized.")
             except Exception as e:
                 logging.error(f"OpenAI Init Error: {e}")
+
+        # Initialize SambaNova Client (OpenAI-compatible)
+        if Config.SAMBANOVA_API_KEY:
+            try:
+                import httpx
+                self.sambanova_client = OpenAI(
+                    api_key=Config.SAMBANOVA_API_KEY,
+                    base_url=Config.SAMBANOVA_BASE_URL,
+                    http_client=httpx.Client()
+                )
+                logging.info("SambaNova Client Initialized.")
+            except Exception as e:
+                logging.error(f"SambaNova Init Error: {e}")
 
     def _initialize(self):
         try:
@@ -63,23 +80,84 @@ class AIService:
         Ensure the response is ONLY the JSON object. No markdown, no explanations.
         """
 
-        # 1. Try Gemini Models
-        models_to_try = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-flash-latest']
+        # 1. Try SambaNova (User provided key, likely most reliable right now)
+        if self.sambanova_client:
+            try:
+                logging.info("Attempting analysis with SambaNova (Llama 3.3 70B)...")
+                response = self.sambanova_client.chat.completions.create(
+                    model="Meta-Llama-3.3-70B-Instruct",
+                    messages=[
+                        {"role": "system", "content": "You are a world-class AI Resume Analyzer. Return valid JSON only."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.1,
+                    top_p=0.1
+                )
+                content = response.choices[0].message.content
+                # Sometimes models wrap JSON in code blocks
+                if "```json" in content:
+                    content = content.split("```json")[1].split("```")[0].strip()
+                elif "```" in content:
+                    content = content.split("```")[1].split("```")[0].strip()
+                
+                return self._parse_json(content)
+            except Exception as e:
+                logging.warning(f"SambaNova Analysis Failed: {e}")
+                last_error = str(e)
+
+        # 2. Try Gemini Models with retry on rate limit
+        # Optimized list: flash-lite (fastest/cheapest) -> flash -> pro
+        models_to_try = [
+            'gemini-1.5-flash-latest', 
+            'gemini-1.5-flash', 
+            'gemini-1.5-pro-latest',
+            'gemini-pro'
+        ]
         last_error = ""
         
         for model_name in models_to_try:
-            try:
-                logging.info(f"Attempting analysis with Gemini model: {model_name}")
-                model = genai.GenerativeModel(model_name)
-                response = model.generate_content(prompt)
-                if response and response.text:
-                    return self._parse_json(response.text)
-            except Exception as e:
-                last_error = str(e)
-                logging.warning(f"Gemini {model_name} failed: {last_error}")
-                continue
+            for attempt in range(2):  # retry once after short wait
+                try:
+                    logging.info(f"Attempting analysis with Gemini model: {model_name} (attempt {attempt+1})")
+                    model = genai.GenerativeModel(model_name)
+                    
+                    # Add safety settings to prevent content blocking
+                    safety_settings = [
+                        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+                    ]
+                    
+                    response = model.generate_content(prompt, safety_settings=safety_settings)
+                    
+                    if response and response.text:
+                        return self._parse_json(response.text)
+                    
+                    # If response was blocked or empty
+                    if response.prompt_feedback:
+                        logging.warning(f"Gemini {model_name} prompt blocked: {response.prompt_feedback}")
+                    
+                    break # Move to next model if this one returned empty but didn't throw
+                except Exception as e:
+                    last_error = str(e)
+                    # Handle Rate Limit (429) specifically
+                    if '429' in last_error:
+                        if attempt == 0:
+                            wait_time = 5 * (attempt + 1)
+                            logging.warning(f"Gemini {model_name} rate limited, waiting {wait_time}s...")
+                            time.sleep(wait_time)
+                        else:
+                            logging.warning(f"Gemini {model_name} exhausted after retries.")
+                            break # Move to next model
+                    elif '404' in last_error or 'not found' in last_error.lower():
+                        logging.warning(f"Model {model_name} not available in this region/key.")
+                        break # Move to next model
+                    else:
+                        logging.warning(f"Gemini {model_name} unexpected error: {last_error}")
+                        break # Move to next model
 
-        # 2. Try OpenAI Fallback (The "At Any Cost" Solution)
+        # 3. Try OpenAI Fallback (The "At Any Cost" Solution)
         if self.openai_client:
             try:
                 logging.info("Gemini failed. Attempting analysis with OpenAI GPT-4o-mini...")
@@ -112,22 +190,83 @@ class AIService:
         - Actionable Improvements: {analysis.get('actionable_improvements', [])}
         - Missing Keywords: {analysis.get('keyword_ats_optimization', {}).get('missing_keywords', [])}
 
-        Generate a complete, ATS-optimized, professional resume in plain text format.
-        Apply all improvements, rewrite weak bullet points, add missing keywords naturally.
-        Return ONLY the resume text. No explanations, no markdown headers like ```.
+        Generate a complete, ATS-optimized, professional resume in PLAIN TEXT.
+        Follow this EXACT structure:
+
+        Line 1: Full Name only
+        Line 2: email@example.com | +1-555-000-0000 | linkedin.com/in/name | github.com/name | City, State
+
+        Then sections using ALL CAPS headers:
+
+        PROFESSIONAL SUMMARY
+        2-3 sentence impactful summary.
+
+        TECHNICAL SKILLS
+        Skill1, Skill2, Skill3, Skill4, Skill5, Skill6, Skill7, Skill8 (comma-separated on ONE line per category)
+
+        EXPERIENCE
+        Job Title at Company Name
+        Company | City, State | Month Year - Month Year
+        - Strong action-verb bullet with quantified result
+        - Strong action-verb bullet with quantified result
+
+        PROJECTS
+        Project Name | Tech Stack
+        Month Year - Month Year
+        - What you built and impact
+
+        EDUCATION
+        Degree in Field
+        University Name | City | Year - Year | GPA: X.X
+
+        CERTIFICATIONS
+        Certification Name | Issuer | Year
+
+        Rules:
+        - Skills MUST be comma-separated on a single line (not bullets)
+        - Bullet points start with - (dash space)
+        - Quantify achievements wherever possible
+        - Add all missing keywords naturally
+        - Return ONLY the resume text. No markdown, no ``` fences, no explanations.
         """
-        models_to_try = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-flash-latest']
+        # 1. Try SambaNova
+        if self.sambanova_client:
+            try:
+                logging.info("Generating improved resume with SambaNova (Llama 3.3 70B)...")
+                response = self.sambanova_client.chat.completions.create(
+                    model="Meta-Llama-3.3-70B-Instruct",
+                    messages=[
+                        {"role": "system", "content": "You are an expert resume writer. Return only the plain text resume."},
+                        {"role": "user", "content": prompt}
+                    ],
+                    temperature=0.3
+                )
+                return {"generated_resume": response.choices[0].message.content.strip()}
+            except Exception as e:
+                logging.warning(f"SambaNova Resume Generation Failed: {e}")
+
+        # 2. Fallback list for resume generation
+        models_to_try = [
+            'gemini-1.5-flash-latest', 
+            'gemini-1.5-flash', 
+            'gemini-pro'
+        ]
         last_error = ""
         for model_name in models_to_try:
-            try:
-                model = genai.GenerativeModel(model_name)
-                response = model.generate_content(prompt)
-                if response and response.text:
-                    return {"generated_resume": response.text.strip()}
-            except Exception as e:
-                last_error = str(e)
-                logging.warning(f"Gemini {model_name} failed on generate: {last_error}")
-                continue
+            for attempt in range(2):
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    response = model.generate_content(prompt)
+                    if response and response.text:
+                        return {"generated_resume": response.text.strip()}
+                    break
+                except Exception as e:
+                    last_error = str(e)
+                    if '429' in last_error and attempt == 0:
+                        time.sleep(10)
+                    else:
+                        logging.warning(f"Gemini {model_name} failed on generate: {last_error}")
+                        break
         if self.openai_client:
             try:
                 response = self.openai_client.chat.completions.create(
@@ -145,11 +284,14 @@ class AIService:
     def _parse_json(self, text):
         try:
             clean_text = text.strip()
+            # Strip markdown code fences if present
+            if clean_text.startswith("```"):
+                clean_text = clean_text.split("\n", 1)[-1]
+                clean_text = clean_text.rsplit("```", 1)[0].strip()
             if "{" in clean_text:
                 start = clean_text.find("{")
                 end = clean_text.rfind("}") + 1
                 clean_text = clean_text[start:end]
-            
             analysis = json.loads(clean_text)
             
             # Ensure all required keys exist with default values

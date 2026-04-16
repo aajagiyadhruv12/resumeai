@@ -19,3 +19,7 @@ class Config:
     
     # Gemini Settings (Keeping as fallback or primary if requested)
     GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+    
+    # SambaNova Settings
+    SAMBANOVA_API_KEY = os.getenv('SAMBANOVA_API_KEY')
+    SAMBANOVA_BASE_URL = os.getenv('SAMBANOVA_BASE_URL', 'https://api.sambanova.ai/v1')

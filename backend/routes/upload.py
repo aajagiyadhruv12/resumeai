@@ -23,20 +23,22 @@ def upload_resume():
         if not validate_file_extension(file.filename):
             return jsonify({"error": "Only PDF and DOCX files are allowed"}), 400
 
-        # Upload to Storage (Optional - don't crash if bucket is missing)
+        # 1. Extract text first (More reliable stream state)
+        resume_text = extract_text_from_file(file)
+        
+        if not resume_text:
+            logging.error(f"Text extraction failed or returned empty for {file.filename}")
+            return jsonify({"error": "Failed to extract text from resume. Please ensure the file contains selectable text and is not an image."}), 500
+
+        # 2. Upload to Storage (Optional - don't crash if bucket is missing)
         public_url = None
         try:
+            # Reset file pointer to beginning for upload
+            file.seek(0)
             public_url = firebase_service.upload_file(file, f"{user_id}/{file.filename}")
         except Exception as e:
             logging.warning(f"Firebase Storage Upload Failed (Analysis will still proceed): {e}")
         
-        # Reset file pointer to beginning after upload attempt to extract text
-        file.seek(0)
-        resume_text = extract_text_from_file(file)
-        
-        if not resume_text:
-            return jsonify({"error": "Failed to extract text from resume"}), 500
-
         logging.info(f"Resume uploaded and text extracted for user: {user_id}")
         return jsonify({
             "message": "Upload successful",

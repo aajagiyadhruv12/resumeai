@@ -1,93 +1,72 @@
 const API_URL = process.env.REACT_APP_API_URL || 'http://127.0.0.1:5000/api';
 
 class ApiService {
-  async analyzeResume(resumeText, targetRole = 'Software Engineer', userId = 'anonymous', filename = 'resume', fileUrl = '') {
+  async _handleFetch(url, options = {}) {
     try {
-      const response = await fetch(`${API_URL}/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resume_text: resumeText, target_role: targetRole, user_id: userId, filename, file_url: fileUrl }),
-      });
+      const response = await fetch(url, options);
       let data;
-      try { data = await response.json(); } catch (e) { throw new Error('Server returned an invalid response.'); }
-      if (!response.ok) throw new Error(data.message || data.error || 'Failed to analyze resume');
+      try {
+        data = await response.json();
+      } catch (e) {
+        throw new Error('Server returned an invalid response (not JSON).');
+      }
+      if (!response.ok) {
+        throw new Error(data.message || data.error || `HTTP Error ${response.status}`);
+      }
       return data;
     } catch (error) {
-      console.error('ApiService Analyze Error:', error);
+      if (error.message === 'Failed to fetch' || error.name === 'TypeError') {
+        throw new Error('Backend is offline. Please run "python app.py" in the backend folder.');
+      }
       throw error;
     }
+  }
+
+  async analyzeResume(resumeText, targetRole = 'Software Engineer', userId = 'anonymous', filename = 'resume', fileUrl = '') {
+    return this._handleFetch(`${API_URL}/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resume_text: resumeText, target_role: targetRole, user_id: userId, filename, file_url: fileUrl }),
+    });
   }
 
   async uploadResume(file, userId = 'anonymous') {
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('user_id', userId);
-      const response = await fetch(`${API_URL}/upload`, { method: 'POST', body: formData });
-      let data;
-      try { data = await response.json(); } catch (e) { throw new Error('Server returned an invalid response.'); }
-      if (!response.ok) throw new Error(data.message || data.error || 'Failed to upload resume');
-      return data;
-    } catch (error) {
-      console.error('ApiService Upload Error:', error);
-      throw error;
-    }
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('user_id', userId);
+    return this._handleFetch(`${API_URL}/upload`, { method: 'POST', body: formData });
   }
 
   async generateResume(resumeText, analysis, targetRole = 'Software Engineer') {
-    try {
-      const response = await fetch(`${API_URL}/generate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resume_text: resumeText, analysis, target_role: targetRole }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to generate resume');
-      return data;
-    } catch (error) {
-      console.error('ApiService Generate Error:', error);
-      throw error;
-    }
+    return this._handleFetch(`${API_URL}/generate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resume_text: resumeText, analysis, target_role: targetRole }),
+    });
   }
 
   async regenerateAnalysis(resumeText, targetRole = 'Software Engineer', customImprovements = '') {
-    try {
-      const response = await fetch(`${API_URL}/regenerate`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ resume_text: resumeText, target_role: targetRole, custom_improvements: customImprovements }),
-      });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to regenerate analysis');
-      return data;
-    } catch (error) {
-      console.error('ApiService Regenerate Error:', error);
-      throw error;
-    }
+    return this._handleFetch(`${API_URL}/regenerate`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resume_text: resumeText, target_role: targetRole, custom_improvements: customImprovements }),
+    });
   }
 
   async getHistory(userId) {
-    try {
-      const response = await fetch(`${API_URL}/history?user_id=${userId}`);
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to fetch history');
-      return data;
-    } catch (error) {
-      console.error('ApiService History Error:', error);
-      throw error;
-    }
+    return this._handleFetch(`${API_URL}/history?user_id=${userId}`);
   }
 
   async deleteHistory(docId) {
-    try {
-      const response = await fetch(`${API_URL}/history/${docId}`, { method: 'DELETE' });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to delete');
-      return data;
-    } catch (error) {
-      console.error('ApiService Delete History Error:', error);
-      throw error;
-    }
+    return this._handleFetch(`${API_URL}/history/${docId}`, { method: 'DELETE' });
+  }
+
+  async login(username, password, email) {
+    return this._handleFetch(`${API_URL}/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email, password, username }),
+    });
   }
 }
 

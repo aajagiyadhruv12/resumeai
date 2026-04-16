@@ -20,7 +20,12 @@ const HistoryPanel = ({ onLoadAnalysis }) => {
       const data = await apiService.getHistory(USER_ID);
       setHistory(data);
     } catch (err) {
-      setError('Backend is offline. Please start the backend server and refresh.');
+      const msg = err.message || '';
+      if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('ERR_CONNECTION_REFUSED')) {
+        setError('Backend is offline. Please start the backend server and refresh.');
+      } else {
+        setError(`Failed to load history: ${msg}`);
+      }
       setHistory([]);
     } finally {
       setLoading(false);
@@ -73,54 +78,54 @@ const HistoryPanel = ({ onLoadAnalysis }) => {
       {error && <div className="alert alert-danger">{error}</div>}
 
       {history.length === 0 ? (
-        <div className="text-center py-5 card">
-          <i className="bi bi-inbox display-1 text-muted"></i>
-          <p className="text-muted mt-3">No saved resumes yet. Analyze a resume to save it here.</p>
+        <div className="text-center py-5 glass-card">
+          <i className="bi bi-inbox display-1 text-muted mb-3 d-block"></i>
+          <p className="text-muted">No saved resumes yet. Analyze a resume to save it here.</p>
         </div>
       ) : (
         <div className="row g-3">
           {history.map((entry) => (
             <div key={entry.id} className="col-12">
-              <div className="card shadow-sm p-3">
-                <div className="d-flex justify-content-between align-items-start">
+              <div className="history-card">
+                <div className="d-flex justify-content-between align-items-center flex-wrap gap-3">
                   <div className="flex-grow-1">
-                    <div className="d-flex align-items-center gap-2 mb-1">
+                    <div className="d-flex align-items-center gap-2 mb-2">
                       <i className="bi bi-file-earmark-text text-primary fs-5"></i>
-                      <span className="fw-semibold">{entry.filename || 'Resume'}</span>
-                      <span className="badge bg-secondary">{entry.target_role || 'General'}</span>
+                      <span className="fw-bold text-dark">{entry.filename || 'Resume'}</span>
+                      <span className="badge bg-primary-soft text-primary small">{entry.target_role || 'General'}</span>
                       {entry.file_url && (
-                        <a href={entry.file_url} target="_blank" rel="noreferrer" className="badge bg-info text-decoration-none">
-                          <i className="bi bi-download me-1"></i>Download PDF
+                        <a href={entry.file_url} target="_blank" rel="noreferrer" className="badge bg-info-soft text-info text-decoration-none">
+                          <i className="bi bi-download me-1"></i>PDF
                         </a>
                       )}
                     </div>
-                    <div className="d-flex gap-3 mb-2">
-                      <span className={`badge bg-${getScoreColor(entry.overall_score)}`}>
+                    <div className="d-flex gap-3 mb-2 flex-wrap">
+                      <span className={`tag tag-${getScoreColor(entry.overall_score)}`}>
                         Overall: {entry.overall_score}/100
                       </span>
-                      <span className={`badge bg-${getScoreColor(entry.ats_score)}`}>
+                      <span className={`tag tag-${getScoreColor(entry.ats_score)}`}>
                         ATS: {entry.ats_score}/100
                       </span>
                     </div>
-                    <small className="text-muted">
-                      <i className="bi bi-calendar3 me-1"></i>{formatDate(entry.timestamp)}
-                    </small>
-                    {entry.final_verdict && (
-                      <p className="mb-0 mt-1 text-muted small fst-italic">"{entry.final_verdict}"</p>
-                    )}
+                    <div className="d-flex align-items-center gap-3 text-muted small">
+                      <span><i className="bi bi-calendar3 me-1"></i>{formatDate(entry.timestamp)}</span>
+                      {entry.final_verdict && (
+                        <span className="fst-italic">"{entry.final_verdict}"</span>
+                      )}
+                    </div>
                   </div>
-                  <div className="d-flex flex-column gap-2 ms-3">
-                    <button className="btn btn-primary btn-sm" onClick={() => handleLoad(entry)}>
+                  <div className="d-flex gap-2">
+                    <button className="btn btn-primary btn-sm px-3" onClick={() => handleLoad(entry)}>
                       <i className="bi bi-eye me-1"></i>View
                     </button>
                     <button
-                      className="btn btn-outline-danger btn-sm"
+                      className="btn btn-outline-danger btn-sm px-3"
                       onClick={() => handleDelete(entry.id)}
                       disabled={deletingId === entry.id}
                     >
                       {deletingId === entry.id
                         ? <span className="spinner-border spinner-border-sm"></span>
-                        : <><i className="bi bi-trash me-1"></i>Delete</>}
+                        : <i className="bi bi-trash"></i>}
                     </button>
                   </div>
                 </div>

@@ -9,6 +9,7 @@ admin_bp = Blueprint('admin', __name__)
 # Admin credentials stored in .env
 ADMIN_EMAIL = 'admin@resumeai.com'
 ADMIN_PASSWORD = 'Admin@1234'
+ADMIN_USERNAME = 'admin'
 
 @admin_bp.route('/admin/login', methods=['POST'])
 def admin_login():
@@ -16,9 +17,11 @@ def admin_login():
         data = request.json
         email = data.get('email', '').strip()
         password = data.get('password', '').strip()
+        username = data.get('username', '').strip()
 
-        if email != ADMIN_EMAIL or password != ADMIN_PASSWORD:
-            return jsonify({'error': 'Invalid email or password'}), 401
+        valid_user = (email == ADMIN_EMAIL or username == ADMIN_USERNAME)
+        if not valid_user or password != ADMIN_PASSWORD:
+            return jsonify({'error': 'Invalid username or password'}), 401
 
         token = jwt.encode({
             'email': email,

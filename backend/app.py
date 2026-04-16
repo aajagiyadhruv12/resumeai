@@ -15,8 +15,8 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     
-    # Enable CORS for React frontend (Vercel)
-    CORS(app)
+    # Enable CORS for React frontend (Vercel/Localhost)
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
     
     # Register Blueprints
     app.register_blueprint(analyze_bp, url_prefix='/api')

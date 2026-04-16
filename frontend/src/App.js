@@ -52,34 +52,39 @@ function App() {
 
   return (
     <div className="container py-5">
-      <header className="text-center mb-4">
-        <div className="d-flex justify-content-end mb-2">
+      <header className="text-center mb-5">
+        <div className="d-flex justify-content-end mb-3">
           <div style={{ position: 'relative' }}>
             <div className="header-avatar" onClick={() => setDropdownOpen(!dropdownOpen)}>
               <i className="bi bi-person-fill"></i>
             </div>
             {dropdownOpen && (
-              <div className="profile-dropdown" onMouseLeave={() => setDropdownOpen(false)}>
-                <div className="px-3 py-2 border-bottom">
-                  <div className="d-flex align-items-center gap-2">
-                    <div className="header-avatar" style={{ width: '36px', height: '36px', fontSize: '16px' }}>
+              <div className="profile-dropdown shadow-lg" onMouseLeave={() => setDropdownOpen(false)}>
+                <div className="px-3 py-3 border-bottom">
+                  <div className="d-flex align-items-center gap-3">
+                    <div className="header-avatar" style={{ width: '40px', height: '40px', fontSize: '18px' }}>
                       <i className="bi bi-person-fill"></i>
                     </div>
-                    <div>
-                      <p className="fw-bold mb-0 small">Admin</p>
-                      <small className="text-muted">AI Resume Analyzer</small>
+                    <div className="text-start">
+                      <p className="fw-bold mb-0 small text-dark">Admin</p>
+                      <small className="text-muted" style={{ fontSize: '11px' }}>AI Resume Analyzer</small>
                     </div>
                   </div>
                 </div>
-                <button className="dropdown-item text-danger py-2 px-3" onClick={handleLogout}>
-                  <i className="bi bi-box-arrow-right me-2"></i>Logout
-                </button>
+                <div className="p-2">
+                  <button className="dropdown-item rounded-3 text-danger py-2 px-3 d-flex align-items-center" onClick={handleLogout}>
+                    <i className="bi bi-box-arrow-right me-2"></i>Logout
+                  </button>
+                </div>
               </div>
             )}
           </div>
         </div>
-        <h1 className="display-3 fw-bold text-primary">AI Resume Analyzer</h1>
-        <p className="lead text-muted">Optimize your profile for ATS and Recruiters in seconds.</p>
+        <h1 className="display-2 fw-bold mb-3">AI Resume Analyzer</h1>
+        <p className="lead text-muted mx-auto" style={{ maxWidth: '600px' }}>
+          Elevate your career with our production-ready AI analysis. 
+          Optimize your profile for ATS and Recruiters in seconds.
+        </p>
       </header>
 
       <ul className="nav nav-pills justify-content-center mb-4">
