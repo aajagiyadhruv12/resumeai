@@ -15,8 +15,18 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     
-    # Enable CORS for React frontend (Vercel/Localhost)
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    # Enable CORS for React frontend
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": [
+                "https://airesumer.qzz.io",
+                "http://localhost:3000",
+                "http://127.0.0.1:3000"
+            ],
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization"]
+        }
+    })
     
     # Register Blueprints
     app.register_blueprint(analyze_bp, url_prefix='/api')
