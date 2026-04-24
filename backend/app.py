@@ -15,8 +15,15 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     
-    # Enable CORS for all origins
-    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    # Enable CORS for all origins and allow common headers/methods
+    CORS(app, resources={
+        r"/api/*": {
+            "origins": "*",
+            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+            "allow_headers": ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+            "supports_credentials": False
+        }
+    })
     
     # Register Blueprints
     app.register_blueprint(analyze_bp, url_prefix='/api')
