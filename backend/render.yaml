@@ -9,3 +9,15 @@ services:
         value: 3.10.11
       - key: FLASK_DEBUG
         value: False
+      - key: SECRET_KEY
+        value: resumeai-secret-key-12345
+      - key: FIREBASE_PROJECT_ID
+        value: resumeai-temp
+      - key: FIREBASE_PRIVATE_KEY
+        value: "-----BEGIN PRIVATE KEY-----\ntemp-key\n-----END PRIVATE KEY-----\n"
+      - key: FIREBASE_CLIENT_EMAIL
+        value: temp@resumeai.iam.gserviceaccount.com
+      - key: GOOGLE_API_KEY
+        value: temp-google-key
+      - key: OPENAI_API_KEY
+        value: temp-openai-key
