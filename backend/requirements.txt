@@ -16,3 +16,4 @@ cryptography==42.0.5
 protobuf>=4.25.0
 grpcio>=1.62.0
 grpcio-status>=1.62.0
+pdfminer.six==20231228
