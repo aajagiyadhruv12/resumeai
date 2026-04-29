@@ -18,7 +18,16 @@ const HistoryPanel = ({ onLoadAnalysis }) => {
     setError('');
     try {
       const data = await apiService.getHistory(USER_ID);
-      setHistory(data);
+      // Ensure data is an array before setting state
+      if (Array.isArray(data)) {
+        setHistory(data);
+      } else if (data && typeof data === 'object') {
+        // Handle cases where backend might wrap the array in an object
+        const possibleArray = data.history || data.data || [];
+        setHistory(Array.isArray(possibleArray) ? possibleArray : []);
+      } else {
+        setHistory([]);
+      }
     } catch (err) {
       const msg = err.message || '';
       if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('ERR_CONNECTION_REFUSED')) {

@@ -208,15 +208,42 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
   if (!analysis) return null;
 
   const handleGenerate = async () => {
-    setGenerating(true); setError(null);
-    try { const result = await apiService.generateResume(resumeText, analysis, targetRole); setGeneratedResume(result.generated_resume); setActiveTab('generated'); }
-    catch (err) { setError(err.message); } finally { setGenerating(false); }
+    setGenerating(true); 
+    setError(null);
+    try { 
+      const result = await apiService.generateResume(resumeText, analysis, targetRole); 
+      if (result && result.generated_resume) {
+        setGeneratedResume(result.generated_resume); 
+        setActiveTab('generated'); 
+      } else {
+        throw new Error('No resume content was generated. Please try again.');
+      }
+    }
+    catch (err) { 
+      setError(err.message || 'Failed to generate resume.'); 
+    } finally { 
+      setGenerating(false); 
+    }
   };
 
   const handleRegenerate = async () => {
-    setRegenerating(true); setError(null);
-    try { const result = await apiService.regenerateAnalysis(resumeText, targetRole, customImprovements); onAnalysisComplete(result, resumeText, targetRole); setCustomImprovements(''); setActiveTab('analysis'); }
-    catch (err) { setError(err.message); } finally { setRegenerating(false); }
+    setRegenerating(true); 
+    setError(null);
+    try { 
+      const result = await apiService.regenerateAnalysis(resumeText, targetRole, customImprovements); 
+      if (result) {
+        onAnalysisComplete(result, resumeText, targetRole); 
+        setCustomImprovements(''); 
+        setActiveTab('analysis'); 
+      } else {
+        throw new Error('Re-analysis failed to return results.');
+      }
+    }
+    catch (err) { 
+      setError(err.message || 'Failed to regenerate analysis.'); 
+    } finally { 
+      setRegenerating(false); 
+    }
   };
 
   const handlePrint = () => {
