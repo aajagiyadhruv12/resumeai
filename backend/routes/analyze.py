@@ -5,8 +5,17 @@ import logging
 
 analyze_bp = Blueprint('analyze', __name__)
 
-@analyze_bp.route('/analyze', methods=['POST'])
+@analyze_bp.route('/analyze', methods=['GET', 'POST'])
 def analyze():
+    if request.method == 'GET':
+        return jsonify({
+            "message": "The AI Analyze endpoint is active. Please use POST to submit your resume.",
+            "example_payload": {
+                "resume_text": "Your resume content here...",
+                "target_role": "Software Engineer"
+            }
+        }), 200
+    
     try:
         data = request.json
         resume_text = data.get('resume_text')

@@ -1,0 +1,21 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:resumeai-fj7h.onrender.com)",
+      "WebFetch(domain:airesumer.qzz.io)",
+      "Bash(npm run *)",
+      "Bash(curl *)",
+      "Bash(git fetch *)",
+      "Bash(git checkout *)",
+      "Bash(git stash *)",
+      "Bash(git show *)",
+      "Bash(git ls-tree *)",
+      "WebFetch(domain:api.github.com)",
+      "Bash(git config *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git push *)",
+      "Bash(git pull *)"
+    ]
+  }
+}

@@ -49,6 +49,16 @@ def create_app():
     @app.errorhandler(Exception)
     def handle_error(e):
         import traceback
+        from werkzeug.exceptions import HTTPException
+        
+        # Handle HTTP exceptions (like 404, 405) specially
+        if isinstance(e, HTTPException):
+            return jsonify({
+                "error": e.name,
+                "message": e.description,
+                "code": e.code
+            }), e.code
+
         error_details = traceback.format_exc()
         logging.error(f"Unhandled Exception:\n{error_details}")
         return jsonify({

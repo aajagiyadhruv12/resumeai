@@ -1,4 +1,4 @@
-const API_URL = process.env.REACT_APP_API_URL || "https://resumeai-fj7h.onrender.com";
+const API_URL = process.env.REACT_APP_API_URL || "https://resumeai-fj7h.onrender.com/api";
 const USE_MOCK_MODE = process.env.NODE_ENV === 'production' ? false : false;
 
 class ApiService {
@@ -11,7 +11,7 @@ class ApiService {
     
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout for AI analysis
       
       const response = await fetch(url, {
         ...options,
@@ -50,12 +50,43 @@ class ApiService {
     
     if (url.includes('/analyze')) {
       return {
-        analysis: {
-          overall_score: 85,
-          strengths: ['Good structure', 'Relevant experience'],
-          improvements: ['Add more quantifiable achievements', 'Include skills section'],
-          recommendations: ['Consider adding a summary section']
+        overall_score: 85,
+        ats_score: 78,
+        final_verdict: 'Strong candidate for this role.',
+        professional_summary: 'Highly experienced Software Engineer with a strong background in full-stack development and cloud architecture.',
+        skills_extraction: {
+          technical_skills: ['React', 'Node.js', 'Python', 'AWS', 'Docker', 'SQL'],
+          soft_skills: ['Leadership', 'Communication', 'Problem Solving', 'Agile']
         },
+        strengths: [
+          'Strong technical foundation in modern web technologies',
+          'Proven track record of delivering scalable solutions',
+          'Excellent understanding of cloud infrastructure'
+        ],
+        weaknesses: [
+          'Limited exposure to mobile development',
+          'Could benefit from more quantifiable metrics in experience section'
+        ],
+        skill_gap_analysis: ['Kubernetes', 'GraphQL', 'TensorFlow'],
+        keyword_ats_optimization: {
+          missing_keywords: ['Microservices', 'CI/CD', 'Unit Testing'],
+          suggested_keywords: ['System Design', 'Scalability', 'Mentorship']
+        },
+        actionable_improvements: [
+          'Add specific metrics to your work experience bullets',
+          'Highlight your contributions to open-source projects',
+          'Include a section for certifications and continuous learning'
+        ],
+        bullet_point_rewriting: [
+          {
+            old: 'Worked on the backend API.',
+            new: 'Architected and implemented a high-performance RESTful API using Node.js, reducing latency by 40%.'
+          }
+        ],
+        job_role_matching: [
+          { role: 'Senior Software Engineer', match_percentage: 92 },
+          { role: 'Full Stack Developer', match_percentage: 88 }
+        ],
         message: 'Resume analyzed successfully (Demo Mode)'
       };
     }
