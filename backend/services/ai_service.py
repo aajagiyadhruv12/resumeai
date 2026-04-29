@@ -351,10 +351,10 @@ class AIService:
             defaults = {
                 "overall_score": 50,
                 "ats_score": 50,
-                "skills_extraction": {"technical_skills": [], "soft_skills": []},
-                "skill_gap_analysis": [],
-                "experience_evaluation": {"impact": "Needs assessment", "years_of_experience": "0", "career_level": "Entry", "weak_bullets": [], "strong_bullets": [], "suggestions": []},
-                "projects_evaluation": {"technical_depth": "Basic", "project_count": 0, "suggestions": []},
+                "skills_extraction": {"technical_skills": ["Not specified"], "soft_skills": ["Not specified"]},
+                "skill_gap_analysis": ["Pending assessment"],
+                "experience_evaluation": {"impact": "Awaiting detailed resume content", "years_of_experience": "0-1", "career_level": "Entry-Level", "weak_bullets": [], "strong_bullets": [], "suggestions": []},
+                "projects_evaluation": {"technical_depth": "Assessment pending - resume lacks project details", "project_count": 0, "suggestions": []},
                 "enhanced_projects": {
                     "score": 40,
                     "project_improvements": [
