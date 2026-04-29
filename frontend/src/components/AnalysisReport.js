@@ -452,7 +452,7 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
         {/* ── ANALYSIS TAB ── */}
         {activeTab === 'analysis' && (
           <div>
-            {/* Score Section */}
+            {/* 1. Overall Score & 2. ATS Score */}
             <div className="scores-section">
               <div className="scores-grid">
                 <ScoreRing score={analysis.overall_score} label="Overall Score" color="#4f46e5" />
@@ -464,12 +464,16 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
               </div>
             </div>
 
-            {/* Summary */}
-            <div className="summary-card">
+            {/* 15. Professional Summary */}
+            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
+              <div className="d-flex align-items-center gap-2 mb-3">
+                <i className="bi bi-person-badge"></i>
+                <span className="text-white-50 text-uppercase small fw-bold" style={{ letterSpacing: '1px' }}>Professional Summary</span>
+              </div>
               <p className="summary-text">{analysis.professional_summary}</p>
             </div>
 
-            {/* Skills */}
+            {/* 3. Skills Extraction */}
             <div className="two-col-grid">
               <SectionCard icon="bi-cpu" title="Technical Skills" color="primary">
                 <div className="tag-cloud">
@@ -483,7 +487,76 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
               </SectionCard>
             </div>
 
-            {/* Strengths & Weaknesses */}
+            {/* 4. Skill Gap Analysis */}
+            <SectionCard icon="bi-exclamation-triangle-fill" title="Skill Gaps" color="warning">
+              <div className="tag-cloud">
+                {analysis.skill_gap_analysis?.map((g, i) => <span key={i} className="tag tag-danger">{g}</span>)}
+              </div>
+            </SectionCard>
+
+            {/* 5. Experience Evaluation */}
+            <SectionCard icon="bi-briefcase-fill" title="Experience" color="primary">
+              <div className="analysis-mini-card">
+                <p><strong>Level:</strong> {analysis.experience_evaluation?.career_level}</p>
+                <p><strong>Experience:</strong> {analysis.experience_evaluation?.years_of_experience} years</p>
+                <p><strong>Impact:</strong> {analysis.experience_evaluation?.impact}</p>
+              </div>
+              {analysis.experience_evaluation?.weak_bullets?.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-danger fw-semibold small">Weak Points:</p>
+                  <ul className="check-list">
+                    {analysis.experience_evaluation?.weak_bullets?.map((b, i) => <li key={i}><i className="bi bi-x-circle-fill text-danger me-2"></i>{b}</li>)}
+                  </ul>
+                </div>
+              )}
+              {analysis.experience_evaluation?.suggestions?.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-success fw-semibold small">Suggestions:</p>
+                  <ul className="check-list">
+                    {analysis.experience_evaluation?.suggestions?.map((s, i) => <li key={i}><i className="bi bi-check-circle-fill text-success me-2"></i>{s}</li>)}
+                  </ul>
+                </div>
+              )}
+            </SectionCard>
+
+            {/* 6. Projects Evaluation */}
+            <SectionCard icon="bi-rocket-takeoff" title="Projects" color="info">
+              <div className="analysis-mini-card">
+                <p><strong>Project Count:</strong> {analysis.projects_evaluation?.project_count}</p>
+                <p><strong>Technical Depth:</strong> {analysis.projects_evaluation?.technical_depth}</p>
+              </div>
+              {analysis.projects_evaluation?.suggestions?.length > 0 && (
+                <div className="mt-3">
+                  <ul className="check-list">
+                    {analysis.projects_evaluation?.suggestions?.map((s, i) => <li key={i}><i className="bi bi-lightbulb-fill text-warning me-2"></i>{s}</li>)}
+                  </ul>
+                </div>
+              )}
+            </SectionCard>
+
+            {/* 7. Education Evaluation */}
+            <SectionCard icon="bi-graduation-cap" title="Education" color="success">
+              <p>{analysis.education_evaluation}</p>
+            </SectionCard>
+
+            {/* 8. Resume Structure & Formatting */}
+            <SectionCard icon="bi-layout-text-sidebar-reverse" title="Structure & Formatting" color="info">
+              <p>{analysis.structure_formatting}</p>
+            </SectionCard>
+
+            {/* 9. Keyword & ATS Optimization */}
+            <SectionCard icon="bi-key-fill" title="ATS Keywords" color="info">
+              <p className="section-sublabel">Missing Keywords</p>
+              <div className="tag-cloud mb-2">
+                {analysis.keyword_ats_optimization?.missing_keywords?.map((k, i) => <span key={i} className="tag tag-danger">{k}</span>)}
+              </div>
+              <p className="section-sublabel">Suggested Keywords</p>
+              <div className="tag-cloud">
+                {analysis.keyword_ats_optimization?.suggested_keywords?.map((k, i) => <span key={i} className="tag tag-success">{k}</span>)}
+              </div>
+            </SectionCard>
+
+            {/* 10. Strengths & 11. Weaknesses */}
             <div className="two-col-grid">
               <SectionCard icon="bi-hand-thumbs-up-fill" title="Strengths" color="success">
                 <ul className="check-list">
@@ -497,26 +570,7 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
               </SectionCard>
             </div>
 
-            {/* Skill Gaps */}
-            <SectionCard icon="bi-exclamation-triangle-fill" title="Skill Gaps" color="warning">
-              <div className="tag-cloud">
-                {analysis.skill_gap_analysis?.map((g, i) => <span key={i} className="tag tag-danger">{g}</span>)}
-              </div>
-            </SectionCard>
-
-            {/* Keywords */}
-            <SectionCard icon="bi-key-fill" title="ATS Keywords" color="info">
-              <p className="section-sublabel">Missing Keywords</p>
-              <div className="tag-cloud mb-2">
-                {analysis.keyword_ats_optimization?.missing_keywords?.map((k, i) => <span key={i} className="tag tag-danger">{k}</span>)}
-              </div>
-              <p className="section-sublabel">Suggested Keywords</p>
-              <div className="tag-cloud">
-                {analysis.keyword_ats_optimization?.suggested_keywords?.map((k, i) => <span key={i} className="tag tag-success">{k}</span>)}
-              </div>
-            </SectionCard>
-
-            {/* Improvements */}
+            {/* 12. Actionable Improvements */}
             <SectionCard icon="bi-lightbulb-fill" title="Actionable Improvements" color="success">
               <ol className="improvement-list">
                 {analysis.actionable_improvements?.map((item, i) => (
@@ -525,17 +579,7 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
               </ol>
             </SectionCard>
 
-            {/* Bullet Rewrites */}
-            <SectionCard icon="bi-pencil-fill" title="Bullet Point Optimization" color="info">
-              {analysis.bullet_point_rewriting?.map((b, i) => (
-                <div key={i} className="bullet-rewrite">
-                  <div className="bullet-old"><i className="bi bi-x-lg me-2 text-danger"></i><del>{b.old}</del></div>
-                  <div className="bullet-new"><i className="bi bi-check-lg me-2 text-success"></i>{b.new}</div>
-                </div>
-              ))}
-            </SectionCard>
-
-            {/* Job Role Matching */}
+            {/* 13. Job Role Matching */}
             {analysis.job_role_matching?.length > 0 && (
               <SectionCard icon="bi-briefcase-fill" title="Job Role Matching" color="primary">
                 {analysis.job_role_matching.map((j, i) => (
@@ -547,8 +591,615 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
                     <div className="match-bar">
                       <div className="match-fill" style={{ width: `${j.match_percentage}%`, background: j.match_percentage >= 70 ? '#10b981' : j.match_percentage >= 40 ? '#f59e0b' : '#ef4444' }}></div>
                     </div>
+                    {j.reason && <p className="text-muted small mt-2 mb-0">{j.reason}</p>}
                   </div>
                 ))}
+              </SectionCard>
+            )}
+
+            {/* 14. Bullet Point Rewriting */}
+            <SectionCard icon="bi-pencil-fill" title="Bullet Rewriting" color="info">
+              {analysis.bullet_point_rewriting?.map((b, i) => (
+                <div key={i} className="bullet-rewrite">
+                  <div className="bullet-old"><i className="bi bi-x-lg me-2 text-danger"></i><del>{b.old}</del></div>
+                  <div className="bullet-new"><i className="bi bi-check-lg me-2 text-success"></i>{b.new}</div>
+                </div>
+              ))}
+            </SectionCard>
+
+            {/* Enhanced Projects */}
+            {analysis.enhanced_projects?.project_improvements?.length > 0 && (
+              <SectionCard icon="bi-rocket-takeoff" title="Project Improvements" color="primary">
+                {analysis.enhanced_projects.project_improvements.map((proj, i) => (
+                  <div key={i} className="bullet-rewrite">
+                    <div className="bullet-old"><i className="bi bi-x-lg me-2 text-danger"></i><strong>{proj.project_name}:</strong> {proj.current_description}</div>
+                    <div className="bullet-new"><i className="bi bi-check-lg me-2 text-success"></i><strong>Improved:</strong> {proj.improved_description}</div>
+                  </div>
+                ))}
+                {analysis.enhanced_projects.project_suggestions?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="fw-semibold small mb-2">Suggested Projects:</p>
+                    {analysis.enhanced_projects.project_suggestions.map((proj, i) => (
+                      <div key={i} className="analysis-mini-card mb-2">
+                        <strong>{proj.suggested_project}</strong>
+                        <p className="small mb-1 text-muted">{proj.tech_stack}</p>
+                        <span className="badge bg-success">{proj.impact}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* ── ENHANCED ANALYSIS SECTIONS ── */}
+
+            {/* Quantified Achievements */}
+            {analysis.quantified_achievements && (
+              <SectionCard icon="bi-graph-up-arrow" title="Quantified Achievements Analysis" color="success">
+                <div className="analysis-mini-card">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <span className="text-muted small">Achievement Score</span>
+                    <span className="score-badge">{analysis.quantified_achievements.score}/100</span>
+                  </div>
+                  <p className="mb-0">{analysis.quantified_achievements.analysis}</p>
+                </div>
+                {analysis.quantified_achievements.issues?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-danger fw-semibold small mb-2">Issues Found:</p>
+                    <ul className="check-list">
+                      {analysis.quantified_achievements.issues.map((issue, i) => (
+                        <li key={i}><i className="bi bi-x-circle-fill text-danger me-2"></i>{issue}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {analysis.quantified_achievements.examples_of_good_quantification?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-success fw-semibold small mb-2">Good Examples:</p>
+                    <ul className="check-list">
+                      {analysis.quantified_achievements.examples_of_good_quantification.map((ex, i) => (
+                        <li key={i}><i className="bi bi-check-circle-fill text-success me-2"></i>{ex}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Action Verbs Analysis */}
+            {analysis.action_verbs_analysis && (
+              <SectionCard icon="bi-chat-quote" title="Action Verbs Analysis" color="info">
+                <div className="analysis-mini-card">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <span className="text-muted small">Verbs Score</span>
+                    <span className="score-badge">{analysis.action_verbs_analysis.score}/100</span>
+                  </div>
+                </div>
+                <div className="two-col-grid">
+                  <div>
+                    <p className="text-success fw-semibold small mb-2">Strong Verbs Used:</p>
+                    <div className="tag-cloud">
+                      {analysis.action_verbs_analysis.strong_verbs?.slice(0, 8).map((v, i) => (
+                        <span key={i} className="tag tag-success">{v}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-warning fw-semibold small mb-2">Weak Verbs to Avoid:</p>
+                    <div className="tag-cloud">
+                      {analysis.action_verbs_analysis.weak_verbs?.slice(0, 8).map((v, i) => (
+                        <span key={i} className="tag tag-warning">{v}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {analysis.action_verbs_analysis.suggestions?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="fw-semibold small mb-2">Suggestions:</p>
+                    <ul className="check-list">
+                      {analysis.action_verbs_analysis.suggestions.map((s, i) => (
+                        <li key={i}><i className="bi bi-lightbulb-fill text-info me-2"></i>{s}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Contact Info Check */}
+            {analysis.contact_info_check && (
+              <SectionCard icon="bi-person-badge" title="Contact Information" color="primary">
+                <div className={`alert ${analysis.contact_info_check.complete ? 'alert-success' : 'alert-warning'}`} style={{ borderRadius: '12px' }}>
+                  <i className={`bi ${analysis.contact_info_check.complete ? 'bi-check-circle-fill' : 'bi-exclamation-triangle-fill'} me-2`}></i>
+                  {analysis.contact_info_check.complete ? 'Complete' : 'Incomplete'}
+                </div>
+                {analysis.contact_info_check.missing?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-danger fw-semibold small mb-2">Missing:</p>
+                    <div className="tag-cloud">
+                      {analysis.contact_info_check.missing.map((m, i) => (
+                        <span key={i} className="tag tag-danger">{m}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {analysis.contact_info_check.issues?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-warning fw-semibold small mb-2">Issues:</p>
+                    <ul className="check-list">
+                      {analysis.contact_info_check.issues.map((issue, i) => (
+                        <li key={i}><i className="bi bi-exclamation-circle-fill text-warning me-2"></i>{issue}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Resume Length Analysis */}
+            {analysis.resume_length_analysis && (
+              <SectionCard icon="bi-file-earmark-text" title="Resume Length Optimization" color="warning">
+                <div className="analysis-mini-card">
+                  <div className="d-flex justify-content-between align-items-center">
+                    <span className="text-muted small">Current Length</span>
+                    <span className="fw-bold">{analysis.resume_length_analysis.current_length}</span>
+                  </div>
+                  <div className={`mt-3 badge ${analysis.resume_length_analysis.status === 'Optimal' ? 'bg-success' : analysis.resume_length_analysis.status === 'Too Short' ? 'bg-warning' : 'bg-danger'}`}
+                       style={{ padding: '8px 16px', borderRadius: '20px', fontSize: '0.9rem' }}>
+                    {analysis.resume_length_analysis.status}
+                  </div>
+                </div>
+                {analysis.resume_length_analysis.recommendations?.length > 0 && (
+                  <div className="mt-3">
+                    <ul className="check-list">
+                      {analysis.resume_length_analysis.recommendations.map((rec, i) => (
+                        <li key={i}><i className="bi bi-info-circle-fill text-info me-2"></i>{rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Section Organization */}
+            {analysis.section_organization && (
+              <SectionCard icon="bi-layout-split" title="Section Organization" color="info">
+                <div className="analysis-mini-card">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <span className="text-muted small">Organization Score</span>
+                    <span className="score-badge">{analysis.section_organization.score}/100</span>
+                  </div>
+                </div>
+                {analysis.section_organization.issues?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-danger fw-semibold small mb-2">Issues:</p>
+                    <ul className="check-list">
+                      {analysis.section_organization.issues.map((issue, i) => (
+                        <li key={i}><i className="bi bi-x-circle-fill text-danger me-2"></i>{issue}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {analysis.section_organization.recommended_order?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-success fw-semibold small mb-2">Recommended Order:</p>
+                    <ol style={{ paddingLeft: '20px' }}>
+                      {analysis.section_organization.recommended_order.map((section, i) => (
+                        <li key={i} className="mb-1">{section}</li>
+                      ))}
+                    </ol>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Keyword Density Analysis */}
+            {analysis.keyword_density_analysis && (
+              <SectionCard icon="bi-funnel" title="Keyword Density Analysis" color="primary">
+                <div className="two-col-grid">
+                  <div>
+                    <p className="text-success fw-semibold small mb-2">Top Keywords:</p>
+                    <div className="tag-cloud">
+                      {analysis.keyword_density_analysis.top_keywords?.slice(0, 6).map((k, i) => (
+                        <span key={i} className="tag tag-success">{k}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-warning fw-semibold small mb-2">Overused Keywords:</p>
+                    <div className="tag-cloud">
+                      {analysis.keyword_density_analysis.overused_keywords?.slice(0, 6).map((k, i) => (
+                        <span key={i} className="tag tag-warning">{k}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                {analysis.keyword_density_analysis.missing_industry_terms?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-danger fw-semibold small mb-2">Missing Industry Terms:</p>
+                    <div className="tag-cloud">
+                      {analysis.keyword_density_analysis.missing_industry_terms.map((k, i) => (
+                        <span key={i} className="tag tag-danger">{k}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Career Trajectory */}
+            {analysis.career_trajectory && (
+              <SectionCard icon="bi-graph-up" title="Career Trajectory" color="success">
+                <div className="analysis-mini-card">
+                  <div className="d-flex align-items-center gap-3">
+                    <div className={`score-badge ${analysis.career_trajectory.trend === 'Improving' ? 'text-success' : analysis.career_trajectory.trend === 'Declining' ? 'text-danger' : 'text-warning'}`}
+                         style={{ fontSize: '1.3rem' }}>
+                      <i className={`bi ${analysis.career_trajectory.trend === 'Improving' ? 'bi-arrow-up-circle-fill' : analysis.career_trajectory.trend === 'Declining' ? 'bi-arrow-down-circle-fill' : 'bi-dash-circle-fill'}`}></i>
+                    </div>
+                    <span className="fw-bold">{analysis.career_trajectory.trend}</span>
+                  </div>
+                </div>
+                <p className="mt-3">{analysis.career_trajectory.analysis}</p>
+                {analysis.career_trajectory.red_flags?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-danger fw-semibold small mb-2">Red Flags:</p>
+                    <ul className="check-list">
+                      {analysis.career_trajectory.red_flags.map((flag, i) => (
+                        <li key={i}><i className="bi bi-exclamation-triangle-fill text-danger me-2"></i>{flag}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Industry Keywords */}
+            {analysis.industry_keywords && (
+              <SectionCard icon="bi-bookmark-star" title="Industry Keywords" color="info">
+                <div className="analysis-mini-card">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <span className="text-muted small">Industry Score</span>
+                    <span className="score-badge">{analysis.industry_keywords.score}/100</span>
+                  </div>
+                </div>
+                <div className="two-col-grid">
+                  <div>
+                    <p className="text-success fw-semibold small mb-2">Detected:</p>
+                    <div className="tag-cloud">
+                      {analysis.industry_keywords.detected?.slice(0, 6).map((k, i) => (
+                        <span key={i} className="tag tag-success">{k}</span>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-danger fw-semibold small mb-2">Missing:</p>
+                    <div className="tag-cloud">
+                      {analysis.industry_keywords.missing?.slice(0, 6).map((k, i) => (
+                        <span key={i} className="tag tag-danger">{k}</span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </SectionCard>
+            )}
+
+            {/* Remote Readiness */}
+            {analysis.remote_readiness && (
+              <SectionCard icon="bi-house-door" title="Remote Work Readiness" color="success">
+                <div className="analysis-mini-card">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <span className="text-muted small">Remote Score</span>
+                    <span className="score-badge">{analysis.remote_readiness.score}/100</span>
+                  </div>
+                </div>
+                {analysis.remote_readiness.indicators?.length > 0 && (
+                  <div>
+                    <p className="text-success fw-semibold small mb-2">Remote Indicators:</p>
+                    <div className="tag-cloud">
+                      {analysis.remote_readiness.indicators.map((ind, i) => (
+                        <span key={i} className="tag tag-success">{ind}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {analysis.remote_readiness.missing_remote_skills?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-warning fw-semibold small mb-2">Missing Remote Skills:</p>
+                    <div className="tag-cloud">
+                      {analysis.remote_readiness.missing_remote_skills.map((skill, i) => (
+                        <span key={i} className="tag tag-warning">{skill}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Leadership Indicators */}
+            {analysis.leadership_indicators && (
+              <SectionCard icon="bi-person-check" title="Leadership Indicators" color="primary">
+                <div className="analysis-mini-card">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <span className="text-muted small">Leadership Score</span>
+                    <span className="score-badge">{analysis.leadership_indicators.score}/100</span>
+                  </div>
+                </div>
+                {analysis.leadership_indicators.detected?.length > 0 && (
+                  <div>
+                    <p className="text-success fw-semibold small mb-2">Detected:</p>
+                    <div className="tag-cloud">
+                      {analysis.leadership_indicators.detected.map((ind, i) => (
+                        <span key={i} className="tag tag-success">{ind}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {analysis.leadership_indicators.missing?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-warning fw-semibold small mb-2">Missing:</p>
+                    <div className="tag-cloud">
+                      {analysis.leadership_indicators.missing.map((miss, i) => (
+                        <span key={i} className="tag tag-warning">{miss}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Problem Solving Evidence */}
+            {analysis.problem_solving_evidence && (
+              <SectionCard icon="bi-lightbulb" title="Problem Solving Evidence" color="warning">
+                <div className="analysis-mini-card">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <span className="text-muted small">Problem Solving Score</span>
+                    <span className="score-badge">{analysis.problem_solving_evidence.score}/100</span>
+                  </div>
+                </div>
+                {analysis.problem_solving_evidence.examples_found?.length > 0 && (
+                  <div>
+                    <p className="text-success fw-semibold small mb-2">Examples Found:</p>
+                    <ul className="check-list">
+                      {analysis.problem_solving_evidence.examples_found.map((ex, i) => (
+                        <li key={i}><i className="bi bi-check-circle-fill text-success me-2"></i>{ex}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {analysis.problem_solving_evidence.missing_patterns?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-warning fw-semibold small mb-2">Missing Patterns:</p>
+                    <ul className="check-list">
+                      {analysis.problem_solving_evidence.missing_patterns.map((pat, i) => (
+                        <li key={i}><i className="bi bi-exclamation-circle-fill text-warning me-2"></i>{pat}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Communication Skills */}
+            {analysis.communication_skills && (
+              <SectionCard icon="bi-chat-dots" title="Communication Skills" color="info">
+                <div className="analysis-mini-card">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <span className="text-muted small">Communication Score</span>
+                    <span className="score-badge">{analysis.communication_skills.score}/100</span>
+                  </div>
+                </div>
+                {analysis.communication_skills.indicators?.length > 0 && (
+                  <div>
+                    <p className="text-success fw-semibold small mb-2">Indicators:</p>
+                    <div className="tag-cloud">
+                      {analysis.communication_skills.indicators.map((ind, i) => (
+                        <span key={i} className="tag tag-success">{ind}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {analysis.communication_skills.weaknesses?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-danger fw-semibold small mb-2">Weaknesses:</p>
+                    <div className="tag-cloud">
+                      {analysis.communication_skills.weaknesses.map((w, i) => (
+                        <span key={i} className="tag tag-danger">{w}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Impact and Results */}
+            {analysis.impact_and_results && (
+              <SectionCard icon="bi-trophy" title="Impact & Results" color="success">
+                <div className="analysis-mini-card">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <span className="text-muted small">Impact Score</span>
+                    <span className="score-badge">{analysis.impact_and_results.score}/100</span>
+                  </div>
+                </div>
+                {analysis.impact_and_results.strong_impact_statements?.length > 0 && (
+                  <div>
+                    <p className="text-success fw-semibold small mb-2">Strong Impact Statements:</p>
+                    <ul className="check-list">
+                      {analysis.impact_and_results.strong_impact_statements.slice(0, 3).map((stmt, i) => (
+                        <li key={i}><i className="bi bi-check-circle-fill text-success me-2"></i>{stmt}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {analysis.impact_and_results.weak_impact_statements?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-warning fw-semibold small mb-2">Weak Statements to Improve:</p>
+                    <ul className="check-list">
+                      {analysis.impact_and_results.weak_impact_statements.slice(0, 3).map((stmt, i) => (
+                        <li key={i}><i className="bi bi-arrow-right-circle-fill text-warning me-2"></i>{stmt}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* ATS Formatting Check */}
+            {analysis.ats_formatting_check && (
+              <SectionCard icon="bi-check2-square" title="ATS Formatting Check" color="info">
+                <div className="analysis-mini-card">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <span className="text-muted small">ATS Score</span>
+                    <span className="score-badge">{analysis.ats_formatting_check.score}/100</span>
+                  </div>
+                </div>
+                {analysis.ats_formatting_check.issues?.length > 0 && (
+                  <div>
+                    <p className="text-danger fw-semibold small mb-2">Issues:</p>
+                    <ul className="check-list">
+                      {analysis.ats_formatting_check.issues.map((issue, i) => (
+                        <li key={i}><i className="bi bi-x-circle-fill text-danger me-2"></i>{issue}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {analysis.ats_formatting_check.recommendations?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-success fw-semibold small mb-2">Recommendations:</p>
+                    <ul className="check-list">
+                      {analysis.ats_formatting_check.recommendations.map((rec, i) => (
+                        <li key={i}><i className="bi bi-check-circle-fill text-success me-2"></i>{rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Specificity Analysis */}
+            {analysis.specificity_analysis && (
+              <SectionCard icon="bi-disc" title="Specificity Analysis" color="warning">
+                <div className="analysis-mini-card">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <span className="text-muted small">Specificity Score</span>
+                    <span className="score-badge">{analysis.specificity_analysis.score}/100</span>
+                  </div>
+                </div>
+                {analysis.specificity_analysis.vague_statements?.length > 0 && (
+                  <div>
+                    <p className="text-warning fw-semibold small mb-2">Vague Statements:</p>
+                    <ul className="check-list">
+                      {analysis.specificity_analysis.vague_statements.slice(0, 3).map((stmt, i) => (
+                        <li key={i}><i className="bi bi-exclamation-circle-fill text-warning me-2"></i>{stmt}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+                {analysis.specificity_analysis.specific_alternatives?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-success fw-semibold small mb-2">Specific Alternatives:</p>
+                    <ul className="check-list">
+                      {analysis.specificity_analysis.specific_alternatives.slice(0, 3).map((alt, i) => (
+                        <li key={i}><i className="bi bi-check-circle-fill text-success me-2"></i>{alt}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Competitive Analysis */}
+            {analysis.competitive_analysis && (
+              <SectionCard icon="bi-bar-chart-steps" title="Competitive Analysis" color="primary">
+                <div className="analysis-mini-card">
+                  <p className="text-muted small mb-2">Market Position</p>
+                  <p className="fw-semibold mb-0">{analysis.competitive_analysis.market_position}</p>
+                </div>
+                <div className="analysis-mini-card mt-3">
+                  <p className="text-muted small mb-2">Unique Value Proposition</p>
+                  <p className="fw-semibold mb-0">{analysis.competitive_analysis.unique_value_proposition}</p>
+                </div>
+                {analysis.competitive_analysis.differentiation_opportunities?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-success fw-semibold small mb-2">Differentiation Opportunities:</p>
+                    <ul className="check-list">
+                      {analysis.competitive_analysis.differentiation_opportunities.map((opp, i) => (
+                        <li key={i}><i className="bi bi-star-fill text-warning me-2"></i>{opp}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Interview Readiness */}
+            {analysis.interview_readiness && (
+              <SectionCard icon="bi-chat-square-quote" title="Interview Readiness" color="success">
+                <div className="analysis-mini-card">
+                  <div className="d-flex justify-content-between align-items-center mb-3">
+                    <span className="text-muted small">Interview Readiness Score</span>
+                    <span className="score-badge">{analysis.interview_readiness.score}/100</span>
+                  </div>
+                  <div className="d-flex align-items-center gap-2">
+                    <span className="text-muted small">Coding Challenge Likelihood:</span>
+                    <span className={`badge ${analysis.interview_readiness.coding_challenge_likelihood === 'High' ? 'bg-danger' : analysis.interview_readiness.coding_challenge_likelihood === 'Medium' ? 'bg-warning' : 'bg-success'}`}>
+                      {analysis.interview_readiness.coding_challenge_likelihood}
+                    </span>
+                  </div>
+                </div>
+                {analysis.interview_readiness.technical_areas_strong?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-success fw-semibold small mb-2">Technical Areas Strong:</p>
+                    <div className="tag-cloud">
+                      {analysis.interview_readiness.technical_areas_strong.map((area, i) => (
+                        <span key={i} className="tag tag-success">{area}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {analysis.interview_readiness.technical_areas_weak?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-warning fw-semibold small mb-2">Technical Areas to Strengthen:</p>
+                    <div className="tag-cloud">
+                      {analysis.interview_readiness.technical_areas_weak.map((area, i) => (
+                        <span key={i} className="tag tag-warning">{area}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {analysis.interview_readiness.behavioral_questions_likely?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-info fw-semibold small mb-2">Likely Behavioral Questions:</p>
+                    <ul className="check-list">
+                      {analysis.interview_readiness.behavioral_questions_likely.map((q, i) => (
+                        <li key={i}><i className="bi bi-question-circle text-info me-2"></i>{q}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            {/* Resume Brand Assessment */}
+            {analysis.resume_brand_assessment && (
+              <SectionCard icon="bi-briefcase" title="Resume Brand Assessment" color="info">
+                <div className="alert" style={{ borderRadius: '12px', background: analysis.resume_brand_assessment.consistent_message ? 'var(--success-soft)' : 'var(--warning-soft)' }}>
+                  <i className={`bi ${analysis.resume_brand_assessment.consistent_message ? 'bi-check-circle-fill text-success' : 'bi-exclamation-triangle-fill text-warning'} me-2`}></i>
+                  {analysis.resume_brand_assessment.consistent_message ? 'Consistent Message' : 'Inconsistent Message'}
+                </div>
+                <div className="analysis-mini-card mt-3">
+                  <p className="text-muted small mb-2">Career Narrative</p>
+                  <p className="mb-0">{analysis.resume_brand_assessment.career_narrative}</p>
+                </div>
+                {analysis.resume_brand_assessment.brand_gaps?.length > 0 && (
+                  <div className="mt-3">
+                    <p className="text-danger fw-semibold small mb-2">Brand Gaps to Address:</p>
+                    <ul className="check-list">
+                      {analysis.resume_brand_assessment.brand_gaps.map((gap, i) => (
+                        <li key={i}><i className="bi bi-x-circle-fill text-danger me-2"></i>{gap}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
               </SectionCard>
             )}
 

@@ -45,14 +45,29 @@ const UploadForm = ({ onAnalysisComplete, setLoading, setError }) => {
       <form onSubmit={handleSubmit}>
         <div className="mb-4">
           <label className="form-label text-uppercase small fw-bold text-muted">Target Job Role</label>
-          <input 
-            type="text" 
-            className="form-control form-control-lg border-0 bg-light" 
+          <select
+            className="form-select form-select-lg border-0 bg-light"
             value={targetRole}
             onChange={(e) => setTargetRole(e.target.value)}
-            placeholder="e.g. Senior Product Manager"
             required
-          />
+          >
+            <option value="Software Engineer">Software Engineer</option>
+            <option value="Frontend Developer">Frontend Developer</option>
+            <option value="Backend Developer">Backend Developer</option>
+            <option value="Full Stack Developer">Full Stack Developer</option>
+            <option value="Data Scientist">Data Scientist</option>
+            <option value="Data Analyst">Data Analyst</option>
+            <option value="Machine Learning Engineer">Machine Learning Engineer</option>
+            <option value="DevOps Engineer">DevOps Engineer</option>
+            <option value="Cloud Engineer">Cloud Engineer</option>
+            <option value="Product Manager">Product Manager</option>
+            <option value="UI/UX Designer">UI/UX Designer</option>
+            <option value="QA Engineer">QA Engineer</option>
+            <option value="Business Analyst">Business Analyst</option>
+            <option value="Project Manager">Project Manager</option>
+            <option value="Technical Writer">Technical Writer</option>
+            <option value="Cybersecurity Analyst">Cybersecurity Analyst</option>
+          </select>
         </div>
         <div className="mb-4">
           <label className="form-label text-uppercase small fw-bold text-muted">Resume Document</label>
