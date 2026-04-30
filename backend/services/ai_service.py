@@ -18,19 +18,23 @@ class AIService:
         except Exception as e:
             logging.error(f"Gemini init error: {e}")
 
-    def _call_gemini(self, prompt):
+    def _call_gemini(self, prompt, is_json=True):
         models = [
             'gemini-1.5-flash', 
             'gemini-1.5-flash-8b',
-            'gemini-1.5-pro', 
-            'gemini-2.0-flash-exp',
-            'gemini-pro'
+            'gemini-1.5-pro',
+            'gemini-2.0-flash-exp'
         ]
+        
+        # Configure generation config with JSON mode if requested
         generation_config = {
             "temperature": 0.1,
             "top_p": 0.95,
             "max_output_tokens": 4096,
         }
+        if is_json:
+            generation_config["response_mime_type"] = "application/json"
+
         last_error = ""
         for model_name in models:
             for attempt in range(2):
@@ -38,7 +42,6 @@ class AIService:
                     logging.info(f"Trying Gemini model: {model_name} (attempt {attempt + 1})")
                     model = genai.GenerativeModel(model_name)
                     
-                    # Add safety settings to prevent content blocking
                     safety_settings = [
                         {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
                         {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
@@ -54,7 +57,7 @@ class AIService:
                     
                     if response and response.text:
                         text = response.text.strip()
-                        if len(text) > 10: 
+                        if len(text) > 5: 
                             return text
                     
                     logging.warning(f"Model {model_name} returned empty response.")
@@ -62,78 +65,38 @@ class AIService:
                 except Exception as e:
                     last_error = str(e)
                     if '429' in last_error:
-                        if attempt == 0:
-                            logging.warning(f"{model_name} rate limited, waiting 5s...")
-                            time.sleep(5)
-                        else:
-                            break 
+                        logging.warning(f"{model_name} rate limited, waiting 5s...")
+                        time.sleep(5)
                     elif '404' in last_error or 'not found' in last_error.lower():
                         logging.warning(f"Model {model_name} not available.")
                         break 
                     else:
                         logging.warning(f"{model_name} error: {last_error}")
                         break 
-        raise Exception(f"All AI models exhausted. Please check your API key and quota. (Last error: {last_error})")
+        raise Exception(f"AI Connection Error. Please verify your GOOGLE_API_KEY in Render settings. (Last error: {last_error})")
 
     def analyze_resume(self, resume_text, target_role="Software Engineer"):
+        if not self._gemini_ready:
+            return {"error": "AI Service not initialized", "details": "The GOOGLE_API_KEY is missing or invalid in your Render environment variables."}
+
         start_time = time.time()
         logging.info(f"Starting analysis for role: {target_role}")
         
-        prompt = f"""You are an expert resume analyst and senior technical recruiter.
-  
-  Analyze the resume below for the target role: {target_role}
+        prompt = f"""You are an expert resume analyst. Analyze this resume for the role: {target_role}
 
-RESUME:
+RESUME TEXT:
 {resume_text}
 
-Return a JSON object. Base ALL values strictly on the actual resume content above. Do NOT use placeholder or example data.
-
-{{
-  "overall_score": <integer 0-100>,
-  "ats_score": <integer 0-100>,
-  "professional_summary": "<2-3 sentence summary of this specific candidate>",
-  "final_verdict": "<Excellent | Strong Candidate | Needs Improvement | Major Revision Required>",
-  "skills_extraction": {{
-    "technical_skills": ["<skills actually found in resume>"],
-    "soft_skills": ["<soft skills found or inferred from resume>"]
-  }},
-  "skill_gap_analysis": ["<skills missing for {target_role} that are not in resume>"],
-  "experience_evaluation": {{
-    "career_level": "<Entry-Level | Junior | Mid-Level | Senior | Lead>",
-    "years_of_experience": "<e.g. 0-1 | 2-3 | 4-6 | 7+>",
-    "impact": "<assessment of work impact based on resume>",
-    "weak_bullets": ["<actual weak bullets from resume>"],
-    "suggestions": ["<specific suggestions to improve experience section>"]
-  }},
-  "projects_evaluation": {{
-    "project_count": <number of projects found in resume>,
-    "technical_depth": "<assessment of project complexity>",
-    "suggestions": ["<specific project improvement suggestions>"]
-  }},
-  "education_evaluation": "<assessment of education section>",
-  "structure_formatting": "<assessment of resume structure>",
-  "keyword_ats_optimization": {{
-    "missing_keywords": ["<important keywords for {target_role} missing from resume>"],
-    "suggested_keywords": ["<keywords to add to improve ATS score>"]
-  }},
-  "strengths": ["<actual strengths based on resume>"],
-  "weaknesses": ["<actual weaknesses based on resume>"],
-  "actionable_improvements": ["<specific actionable steps for this resume>"],
-  "job_role_matching": [
-    {{"role": "<job title>", "match_percentage": <0-100>, "reason": "<why>"}},
-    {{"role": "<job title>", "match_percentage": <0-100>, "reason": "<why>"}},
-    {{"role": "<job title>", "match_percentage": <0-100>, "reason": "<why>"}}
-  ],
-  "bullet_point_rewriting": [
-    {{"old": "<actual bullet from resume>", "new": "<improved version with metrics>"}},
-    {{"old": "<actual bullet from resume>", "new": "<improved version with metrics>"}}
-  ]
-}}
-
-Return ONLY the JSON object. No markdown, no explanation, no code fences.
+Provide a detailed analysis in JSON format with these exact keys:
+overall_score (0-100), ats_score (0-100), professional_summary (2-3 sentences), final_verdict, 
+skills_extraction (technical_skills, soft_skills arrays), skill_gap_analysis (array), 
+experience_evaluation (impact, weak_bullets, suggestions), projects_evaluation (technical_depth, suggestions), 
+education_evaluation, structure_formatting, keyword_ats_optimization (missing_keywords, suggested_keywords), 
+strengths (array), weaknesses (array), actionable_improvements (array), 
+job_role_matching (array of {{role, match_percentage, reason}}), bullet_point_rewriting (array of {{old, new}}).
 """
         try:
-            text = self._call_gemini(prompt)
+            text = self._call_gemini(prompt, is_json=True)
             result = self._parse_json(text)
             logging.info(f"Analysis completed in {time.time() - start_time:.2f} seconds")
             return result

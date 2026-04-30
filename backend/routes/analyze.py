@@ -32,7 +32,11 @@ def analyze():
             # Return 422 (Unprocessable Entity) for AI failures instead of 500
             return jsonify(analysis_result), 422
 
-        firebase_service.save_analysis(user_id, analysis_result, resume_text, filename, file_url)
+        try:
+            firebase_service.save_analysis(user_id, analysis_result, resume_text, filename, file_url)
+        except Exception as fe:
+            logging.error(f"Failed to save analysis to Firebase (Analysis still returned): {fe}")
+
         logging.info(f"Analysis successful for user: {user_id}")
         return jsonify(analysis_result), 200
     except Exception as e:
