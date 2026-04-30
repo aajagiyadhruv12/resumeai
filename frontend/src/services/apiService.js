@@ -13,14 +13,16 @@ class ApiService {
   async _handleFetch(url, options = {}, timeoutMs = 180000) {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+    let response;
     try {
-      const response = await fetch(url, { ...options, signal: controller.signal });
+      response = await fetch(url, { ...options, signal: controller.signal });
       clearTimeout(timeoutId);
       let data;
+      const responseText = await response.text();
       try {
-        data = await response.json();
+        data = JSON.parse(responseText);
       } catch (e) {
-        throw new Error('Server returned an invalid response.');
+        throw new Error(`Server returned invalid response: ${responseText.substring(0, 100)}`);
       }
       if (!response.ok) {
         throw new Error(data.error || data.message || `Server error ${response.status}`);
@@ -31,7 +33,10 @@ class ApiService {
       if (error.name === 'AbortError') {
         throw new Error('Request timed out. The server may be starting up — please wait 30 seconds and try again.');
       }
-      throw new Error(error.message || 'Failed to connect to backend.');
+      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('Network request failed')) {
+        throw new Error('Cannot connect to server. Please check your internet connection and try again.');
+      }
+      throw error;
     }
   }
 
