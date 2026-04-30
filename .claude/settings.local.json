@@ -15,7 +15,11 @@
       "Bash(git add *)",
       "Bash(git commit *)",
       "Bash(git push *)",
-      "Bash(git pull *)"
+      "Bash(git pull *)",
+      "Bash(python -c \"from services.ai_service import AIService; print\\('Backend OK'\\)\")",
+      "Bash(python -c \"from services.ai_service import AIService; print\\('OK'\\)\")",
+      "Bash(python -c \"from routes.analyze import analyze_bp; print\\('Backend OK'\\)\")",
+      "Bash(python -m py_compile app.py routes/analyze.py services/ai_service.py)"
     ]
   }
 }
