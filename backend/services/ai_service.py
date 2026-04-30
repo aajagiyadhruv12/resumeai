@@ -21,14 +21,15 @@ class AIService:
     def _call_gemini(self, prompt):
         models = [
             'gemini-1.5-flash', 
+            'gemini-1.5-flash-8b',
             'gemini-1.5-pro', 
             'gemini-2.0-flash-exp',
             'gemini-pro'
         ]
         generation_config = {
-            "temperature": 0.2,
+            "temperature": 0.1,
             "top_p": 0.95,
-            "max_output_tokens": 8192,
+            "max_output_tokens": 4096,
         }
         last_error = ""
         for model_name in models:
@@ -53,26 +54,26 @@ class AIService:
                     
                     if response and response.text:
                         text = response.text.strip()
-                        if len(text) > 10: # Reduced from 50 to be more inclusive of short valid JSON
+                        if len(text) > 10: 
                             return text
                     
-                    logging.warning(f"Model {model_name} returned empty or too short response.")
-                    break # Try next model
+                    logging.warning(f"Model {model_name} returned empty response.")
+                    break 
                 except Exception as e:
                     last_error = str(e)
                     if '429' in last_error:
                         if attempt == 0:
-                            logging.warning(f"{model_name} rate limited, waiting 10s...")
-                            time.sleep(10)
+                            logging.warning(f"{model_name} rate limited, waiting 5s...")
+                            time.sleep(5)
                         else:
-                            break # Try next model
+                            break 
                     elif '404' in last_error or 'not found' in last_error.lower():
-                        logging.warning(f"Model {model_name} not available/found.")
-                        break # Try next model
+                        logging.warning(f"Model {model_name} not available.")
+                        break 
                     else:
                         logging.warning(f"{model_name} error: {last_error}")
-                        break # Try next model
-        raise Exception(f"All Gemini models exhausted. Last error: {last_error}")
+                        break 
+        raise Exception(f"All AI models exhausted. Please check your API key and quota. (Last error: {last_error})")
 
     def analyze_resume(self, resume_text, target_role="Software Engineer"):
         start_time = time.time()
