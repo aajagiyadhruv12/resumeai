@@ -19,9 +19,14 @@ class AIService:
             logging.error(f"Gemini init error: {e}")
 
     def _call_gemini(self, prompt):
-        models = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.0-flash-lite']
+        models = [
+            'gemini-1.5-flash', 
+            'gemini-1.5-pro', 
+            'gemini-2.0-flash-exp',
+            'gemini-pro'
+        ]
         generation_config = {
-            "temperature": 0.3,
+            "temperature": 0.2,
             "top_p": 0.95,
             "max_output_tokens": 8192,
         }
@@ -29,24 +34,45 @@ class AIService:
         for model_name in models:
             for attempt in range(2):
                 try:
-                    logging.info(f"Trying {model_name} attempt {attempt + 1}")
+                    logging.info(f"Trying Gemini model: {model_name} (attempt {attempt + 1})")
                     model = genai.GenerativeModel(model_name)
-                    response = model.generate_content(prompt, generation_config=generation_config)
-                    if response and response.text and len(response.text.strip()) > 50:
-                        return response.text.strip()
-                    break
+                    
+                    # Add safety settings to prevent content blocking
+                    safety_settings = [
+                        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
+                        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
+                        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
+                        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
+                    ]
+                    
+                    response = model.generate_content(
+                        prompt, 
+                        generation_config=generation_config,
+                        safety_settings=safety_settings
+                    )
+                    
+                    if response and response.text:
+                        text = response.text.strip()
+                        if len(text) > 10: # Reduced from 50 to be more inclusive of short valid JSON
+                            return text
+                    
+                    logging.warning(f"Model {model_name} returned empty or too short response.")
+                    break # Try next model
                 except Exception as e:
                     last_error = str(e)
                     if '429' in last_error:
                         if attempt == 0:
-                            logging.warning(f"{model_name} rate limited, waiting 15s...")
-                            time.sleep(15)
+                            logging.warning(f"{model_name} rate limited, waiting 10s...")
+                            time.sleep(10)
                         else:
-                            break
+                            break # Try next model
+                    elif '404' in last_error or 'not found' in last_error.lower():
+                        logging.warning(f"Model {model_name} not available/found.")
+                        break # Try next model
                     else:
-                        logging.warning(f"{model_name} failed: {last_error}")
-                        break
-        raise Exception(f"All Gemini models failed. Last error: {last_error}")
+                        logging.warning(f"{model_name} error: {last_error}")
+                        break # Try next model
+        raise Exception(f"All Gemini models exhausted. Last error: {last_error}")
 
     def analyze_resume(self, resume_text, target_role="Software Engineer"):
         start_time = time.time()
@@ -185,36 +211,45 @@ STRICT RULES:
     def _parse_json(self, text):
         try:
             clean = text.strip()
-            if clean.startswith("```"):
-                clean = clean.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
+            # Remove markdown code blocks if present
+            if "```" in clean:
+                if "```json" in clean:
+                    clean = clean.split("```json")[1].split("```")[0].strip()
+                else:
+                    clean = clean.split("```")[1].split("```")[0].strip()
+            
+            # Find the actual JSON object start and end
             start = clean.find("{")
             end = clean.rfind("}") + 1
-            if start == -1:
-                raise ValueError("No JSON found in response")
+            if start == -1 or end == 0:
+                logging.error(f"No JSON object found in text: {text[:200]}...")
+                raise ValueError("No valid JSON object found in AI response.")
+            
             clean = clean[start:end]
             data = json.loads(clean)
 
+            # Define robust defaults for all required keys
             defaults = {
-                "overall_score": 50,
-                "ats_score": 50,
-                "professional_summary": "Not available.",
-                "final_verdict": "Needs Improvement",
+                "overall_score": 0,
+                "ats_score": 0,
+                "professional_summary": "No summary provided by AI.",
+                "final_verdict": "Needs Review",
                 "skills_extraction": {"technical_skills": [], "soft_skills": []},
                 "skill_gap_analysis": [],
                 "experience_evaluation": {
-                    "career_level": "Not specified",
-                    "years_of_experience": "Not specified",
-                    "impact": "Not assessed",
+                    "career_level": "N/A",
+                    "years_of_experience": "N/A",
+                    "impact": "N/A",
                     "weak_bullets": [],
                     "suggestions": []
                 },
                 "projects_evaluation": {
                     "project_count": 0,
-                    "technical_depth": "Not assessed",
+                    "technical_depth": "N/A",
                     "suggestions": []
                 },
-                "education_evaluation": "Not assessed",
-                "structure_formatting": "Not assessed",
+                "education_evaluation": "N/A",
+                "structure_formatting": "N/A",
                 "keyword_ats_optimization": {"missing_keywords": [], "suggested_keywords": []},
                 "strengths": [],
                 "weaknesses": [],
@@ -222,12 +257,22 @@ STRICT RULES:
                 "job_role_matching": [],
                 "bullet_point_rewriting": []
             }
+            
+            # Fill in missing keys recursively or at top level
             for key, val in defaults.items():
-                if key not in data:
+                if key not in data or data[key] is None:
                     data[key] = val
+                elif isinstance(val, dict) and isinstance(data[key], dict):
+                    for sub_key, sub_val in val.items():
+                        if sub_key not in data[key] or data[key][sub_key] is None:
+                            data[key][sub_key] = sub_val
+            
             return data
+        except json.JSONDecodeError as je:
+            logging.error(f"JSON Decode Error: {je}. Text: {text[:500]}")
+            raise Exception("AI returned invalid JSON format. Please try again.")
         except Exception as e:
-            logging.error(f"JSON parse error: {e}")
+            logging.error(f"Unexpected error in _parse_json: {e}")
             raise e
 
 

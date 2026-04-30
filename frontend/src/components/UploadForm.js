@@ -27,11 +27,15 @@ const UploadForm = ({ onAnalysisComplete, setLoading, setError }) => {
       setUploadStatus('Starting AI analysis...');
       const analysisRes = await apiService.analyzeResume(uploadRes.resume_text, targetRole, 'anonymous', file.name, uploadRes.file_url || '');
       
+      if (analysisRes.error) {
+        throw new Error(analysisRes.details || analysisRes.error);
+      }
+
       onAnalysisComplete(analysisRes, uploadRes.resume_text, targetRole, file.name);
       setUploadStatus('');
       setIsSuccess(false);
     } catch (err) {
-      setError(err.message);
+      setError(err.message || 'An unexpected error occurred during analysis.');
       setUploadStatus('');
       setIsSuccess(false);
     } finally {
