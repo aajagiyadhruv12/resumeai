@@ -231,5 +231,5 @@ RULES:
             logging.error(f"JSON parse error: {e}\nRaw text: {text[:500]}")
             raise e
 
-# Singleton
+# Singleton - v2
 ai_service = AIService()
