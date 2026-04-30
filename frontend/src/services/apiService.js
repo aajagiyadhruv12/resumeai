@@ -36,6 +36,7 @@ class ApiService {
   }
 
   async analyzeResume(resumeText, targetRole = 'Software Engineer', userId = 'anonymous', filename = 'resume', fileUrl = '') {
+    await wakeUpBackend();
     return this._handleFetch(`${API_URL}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
