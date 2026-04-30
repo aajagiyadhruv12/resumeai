@@ -30,9 +30,10 @@ class ApiService {
       }
       return data;
     } catch (error) {
-      // Fallback to mock responses when backend is not available
-      console.log('Backend not available, using mock response for:', url);
-      return this._getMockResponse(url, options);
+      if (error.name === 'AbortError') {
+        throw new Error('Request timed out. The AI is taking too long. Please try again.');
+      }
+      throw new Error(error.message || 'Failed to connect to backend.');
     }
   }
 
