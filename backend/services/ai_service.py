@@ -4,6 +4,7 @@ import logging
 import time
 from config.settings import Config
 
+
 class AIService:
     def __init__(self):
         self._gemini_ready = False
@@ -17,8 +18,7 @@ class AIService:
         except Exception as e:
             logging.error(f"Gemini init error: {e}")
 
-    def _call_gemini(self, prompt, is_json=True):
-        """Try Gemini models in order, return text or raise."""
+    def _call_gemini(self, prompt):
         models = ['gemini-2.0-flash', 'gemini-2.5-flash', 'gemini-2.0-flash-lite']
         generation_config = {
             "temperature": 0.3,
@@ -29,7 +29,7 @@ class AIService:
         for model_name in models:
             for attempt in range(2):
                 try:
-                    logging.info(f"Trying {model_name} attempt {attempt+1}")
+                    logging.info(f"Trying {model_name} attempt {attempt + 1}")
                     model = genai.GenerativeModel(model_name)
                     response = model.generate_content(prompt, generation_config=generation_config)
                     if response and response.text and len(response.text.strip()) > 50:
@@ -46,7 +46,7 @@ class AIService:
                     else:
                         logging.warning(f"{model_name} failed: {last_error}")
                         break
-        raise Exception(f"All Gemini models failed. Last: {last_error}")
+        raise Exception(f"All Gemini models failed. Last error: {last_error}")
 
     def analyze_resume(self, resume_text, target_role="Software Engineer"):
         prompt = f"""You are an expert resume analyst and senior technical recruiter.
@@ -56,43 +56,43 @@ Analyze the resume below for the target role: {target_role}
 RESUME:
 {resume_text}
 
-Return a JSON object with EXACTLY these fields. Base ALL values on the actual resume content above:
+Return a JSON object. Base ALL values strictly on the actual resume content above. Do NOT use placeholder or example data.
 
 {{
-  "overall_score": <integer 0-100 based on resume quality>,
-  "ats_score": <integer 0-100 based on keyword match for {target_role}>,
-  "professional_summary": "<2-3 sentence summary of this candidate based on their actual resume>",
-  "final_verdict": "<one of: Excellent, Strong Candidate, Needs Improvement, Major Revision Required>",
+  "overall_score": <integer 0-100>,
+  "ats_score": <integer 0-100>,
+  "professional_summary": "<2-3 sentence summary of this specific candidate>",
+  "final_verdict": "<Excellent | Strong Candidate | Needs Improvement | Major Revision Required>",
   "skills_extraction": {{
-    "technical_skills": ["<actual skills found in resume>"],
-    "soft_skills": ["<actual soft skills found or inferred>"]
+    "technical_skills": ["<skills actually found in resume>"],
+    "soft_skills": ["<soft skills found or inferred from resume>"]
   }},
-  "skill_gap_analysis": ["<skills missing for {target_role} not in resume>"],
+  "skill_gap_analysis": ["<skills missing for {target_role} that are not in resume>"],
   "experience_evaluation": {{
-    "career_level": "<Entry-Level/Junior/Mid-Level/Senior/Lead based on resume>",
-    "years_of_experience": "<e.g. 0-1, 2-3, 4-6, 7+>",
-    "impact": "<assessment of their work impact based on resume content>",
-    "weak_bullets": ["<actual weak bullet points from resume>"],
+    "career_level": "<Entry-Level | Junior | Mid-Level | Senior | Lead>",
+    "years_of_experience": "<e.g. 0-1 | 2-3 | 4-6 | 7+>",
+    "impact": "<assessment of work impact based on resume>",
+    "weak_bullets": ["<actual weak bullets from resume>"],
     "suggestions": ["<specific suggestions to improve experience section>"]
   }},
   "projects_evaluation": {{
-    "project_count": <number of projects found>,
+    "project_count": <number of projects found in resume>,
     "technical_depth": "<assessment of project complexity>",
     "suggestions": ["<specific project improvement suggestions>"]
   }},
   "education_evaluation": "<assessment of education section>",
-  "structure_formatting": "<assessment of resume structure and formatting>",
+  "structure_formatting": "<assessment of resume structure>",
   "keyword_ats_optimization": {{
     "missing_keywords": ["<important keywords for {target_role} missing from resume>"],
     "suggested_keywords": ["<keywords to add to improve ATS score>"]
   }},
-  "strengths": ["<actual strengths based on resume content>"],
-  "weaknesses": ["<actual weaknesses based on resume content>"],
-  "actionable_improvements": ["<specific actionable steps to improve this resume>"],
+  "strengths": ["<actual strengths based on resume>"],
+  "weaknesses": ["<actual weaknesses based on resume>"],
+  "actionable_improvements": ["<specific actionable steps for this resume>"],
   "job_role_matching": [
-    {{"role": "<relevant job title>", "match_percentage": <0-100>, "reason": "<why this match>"}},
-    {{"role": "<relevant job title>", "match_percentage": <0-100>, "reason": "<why this match>"}},
-    {{"role": "<relevant job title>", "match_percentage": <0-100>, "reason": "<why this match>"}}
+    {{"role": "<job title>", "match_percentage": <0-100>, "reason": "<why>"}},
+    {{"role": "<job title>", "match_percentage": <0-100>, "reason": "<why>"}},
+    {{"role": "<job title>", "match_percentage": <0-100>, "reason": "<why>"}}
   ],
   "bullet_point_rewriting": [
     {{"old": "<actual bullet from resume>", "new": "<improved version with metrics>"}},
@@ -100,14 +100,10 @@ Return a JSON object with EXACTLY these fields. Base ALL values on the actual re
   ]
 }}
 
-RULES:
-- Analyze ONLY what is in the resume above
-- Do NOT use placeholder or example data
-- Every field must have real content
-- Return ONLY the JSON object, no markdown, no explanation
+Return ONLY the JSON object. No markdown, no explanation, no code fences.
 """
         try:
-            text = self._call_gemini(prompt, is_json=True)
+            text = self._call_gemini(prompt)
             return self._parse_json(text)
         except Exception as e:
             logging.error(f"Analysis failed: {e}")
@@ -119,20 +115,20 @@ RULES:
         missing_keywords = analysis.get('keyword_ats_optimization', {}).get('missing_keywords', [])
         improvements = analysis.get('actionable_improvements', [])
 
-        prompt = f"""You are an expert resume writer. Rewrite the resume below into a professional, ATS-optimized version.
+        prompt = f"""You are an expert resume writer. Rewrite the resume below into a professional ATS-optimized version.
 
 TARGET ROLE: {target_role}
 
 ORIGINAL RESUME:
 {resume_text}
 
-IMPROVEMENTS TO MAKE:
-- Fix weaknesses: {weaknesses}
-- Add missing skills where applicable: {missing_skills}
+IMPROVEMENTS TO APPLY:
+- Fix these weaknesses: {weaknesses}
+- Add these missing skills where applicable: {missing_skills}
 - Include these keywords naturally: {missing_keywords}
 - Apply these improvements: {improvements}
 
-Write the improved resume in this EXACT format (plain text only, no markdown):
+Write the improved resume in this EXACT plain text format:
 
 [CANDIDATE FULL NAME]
 [email] | [phone] | [linkedin] | [github] | [city, state]
@@ -141,17 +137,17 @@ PROFESSIONAL SUMMARY
 [3-4 sentences: role, years of experience, key skills, biggest achievement]
 
 TECHNICAL SKILLS
-Languages: [list]
-Frameworks: [list]
-Tools: [list]
-Databases: [list]
+Languages: [list from resume + relevant additions]
+Frameworks: [list from resume + relevant additions]
+Tools: [list from resume + relevant additions]
+Databases: [list from resume]
 
 EXPERIENCE
 [Job Title] | [Company]
 [City, State] | [Month Year] - [Month Year or Present]
-- [Strong action verb + what you did + measurable result]
-- [Strong action verb + what you did + measurable result]
-- [Strong action verb + what you did + measurable result]
+- [Action verb + what you did + measurable result]
+- [Action verb + what you did + measurable result]
+- [Action verb + what you did + measurable result]
 
 PROJECTS
 [Project Name] | [Tech Stack]
@@ -166,15 +162,14 @@ EDUCATION
 CERTIFICATIONS
 [Cert Name] | [Issuer] | [Year]
 
-RULES:
+STRICT RULES:
 - Use ONLY information from the original resume, enhanced with better wording
-- Add realistic metrics where missing (estimate based on context)
+- Add realistic metrics where missing
 - Use strong action verbs: Led, Built, Developed, Optimized, Architected, Delivered
-- Return ONLY the resume text, nothing else
+- Return ONLY the resume text, no markdown, no explanation
 """
         try:
-            text = self._call_gemini(prompt, is_json=False)
-            # Clean any accidental markdown
+            text = self._call_gemini(prompt)
             if text.startswith("```"):
                 text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
             return {"generated_resume": text}
@@ -190,15 +185,14 @@ RULES:
             start = clean.find("{")
             end = clean.rfind("}") + 1
             if start == -1:
-                raise ValueError("No JSON object found in response")
+                raise ValueError("No JSON found in response")
             clean = clean[start:end]
             data = json.loads(clean)
 
-            # Fill any missing fields with sensible defaults
             defaults = {
                 "overall_score": 50,
                 "ats_score": 50,
-                "professional_summary": "Summary not available.",
+                "professional_summary": "Not available.",
                 "final_verdict": "Needs Improvement",
                 "skills_extraction": {"technical_skills": [], "soft_skills": []},
                 "skill_gap_analysis": [],
@@ -228,8 +222,9 @@ RULES:
                     data[key] = val
             return data
         except Exception as e:
-            logging.error(f"JSON parse error: {e}\nRaw text: {text[:500]}")
+            logging.error(f"JSON parse error: {e}")
             raise e
 
-# Singleton - v2
+
+# Singleton
 ai_service = AIService()
