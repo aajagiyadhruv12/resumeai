@@ -29,7 +29,8 @@ def analyze():
 
         analysis_result = ai_service.analyze_resume(resume_text, target_role)
         if "error" in analysis_result:
-            return jsonify(analysis_result), 500
+            # Return 422 (Unprocessable Entity) for AI failures instead of 500
+            return jsonify(analysis_result), 422
 
         firebase_service.save_analysis(user_id, analysis_result, resume_text, filename, file_url)
         logging.info(f"Analysis successful for user: {user_id}")
@@ -53,7 +54,7 @@ def generate():
 
         result = ai_service.generate_improved_resume(resume_text, analysis, target_role)
         if "error" in result:
-            return jsonify(result), 500
+            return jsonify(result), 422
         return jsonify(result), 200
     except Exception as e:
         logging.error(f"Route Generate Error: {e}")
@@ -76,7 +77,7 @@ def regenerate():
         combined_text = f"{resume_text}\n\nUser Custom Improvements to apply:\n{custom_improvements}" if custom_improvements else resume_text
         analysis_result = ai_service.analyze_resume(combined_text, target_role)
         if "error" in analysis_result:
-            return jsonify(analysis_result), 500
+            return jsonify(analysis_result), 422
 
         firebase_service.save_analysis(user_id, analysis_result)
         return jsonify(analysis_result), 200

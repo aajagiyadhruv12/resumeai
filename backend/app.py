@@ -15,10 +15,10 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     
-    # Enable CORS for all origins and allow common headers/methods
+    # Enable CORS for all routes and allow common headers/methods
     CORS(app, resources={
-        r"/api/*": {
-            "origins": "*",
+        r"/*": {
+            "origins": ["https://airesumer.qzz.io", "http://localhost:3000", "https://resumeai-fj7h.onrender.com"],
             "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
             "allow_headers": ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
             "supports_credentials": False
