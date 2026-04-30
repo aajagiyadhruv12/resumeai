@@ -19,7 +19,12 @@
       "Bash(python -c \"from services.ai_service import AIService; print\\('Backend OK'\\)\")",
       "Bash(python -c \"from services.ai_service import AIService; print\\('OK'\\)\")",
       "Bash(python -c \"from routes.analyze import analyze_bp; print\\('Backend OK'\\)\")",
-      "Bash(python -m py_compile app.py routes/analyze.py services/ai_service.py)"
+      "Bash(python -m py_compile app.py routes/analyze.py services/ai_service.py)",
+      "Bash(grep -o '.{0,50}admin/login.{0,50}')",
+      "Bash(grep -oE 'const r=.{0,100}')",
+      "Bash(grep -o '\".{0,30}api.{0,30}\"')",
+      "WebFetch(domain:example.com)",
+      "WebSearch"
     ]
   }
 }

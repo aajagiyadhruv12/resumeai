@@ -10,7 +10,17 @@ const wakeUpBackend = async () => {
 };
 
 class ApiService {
-  async _handleFetch(url, options = {}, timeoutMs = 180000) {
+  constructor() {
+    this.cache = new Map();
+  }
+
+  async _handleFetch(url, options = {}, timeoutMs = 180000, useCache = false) {
+    const cacheKey = `${url}-${JSON.stringify(options)}`;
+    if (useCache && this.cache.has(cacheKey)) {
+      console.log('Returning cached data for:', url);
+      return this.cache.get(cacheKey);
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     let response;
@@ -27,6 +37,9 @@ class ApiService {
       if (!response.ok) {
         throw new Error(data.error || data.message || `Server error ${response.status}`);
       }
+      if (useCache) {
+        this.cache.set(cacheKey, data);
+      }
       return data;
     } catch (error) {
       clearTimeout(timeoutId);
@@ -40,13 +53,19 @@ class ApiService {
     }
   }
 
+  clearCache() {
+    this.cache.clear();
+  }
+
   async analyzeResume(resumeText, targetRole = 'Software Engineer', userId = 'anonymous', filename = 'resume', fileUrl = '') {
     await wakeUpBackend();
-    return this._handleFetch(`${API_URL}/analyze`, {
+    const result = await this._handleFetch(`${API_URL}/analyze`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ resume_text: resumeText, target_role: targetRole, user_id: userId, filename, file_url: fileUrl }),
     }, 180000);
+    this.clearCache(); // Clear history cache after new analysis
+    return result;
   }
 
   async uploadResume(file, userId = 'anonymous') {
@@ -74,11 +93,13 @@ class ApiService {
   }
 
   async getHistory(userId) {
-    return this._handleFetch(`${API_URL}/history?user_id=${userId}`, {}, 30000);
+    return this._handleFetch(`${API_URL}/history?user_id=${userId}`, {}, 30000, true);
   }
 
   async deleteHistory(docId) {
-    return this._handleFetch(`${API_URL}/history/${docId}`, { method: 'DELETE' }, 30000);
+    const result = await this._handleFetch(`${API_URL}/history/${docId}`, { method: 'DELETE' }, 30000);
+    this.clearCache(); // Clear history cache after deletion
+    return result;
   }
 
   async login(username, password, email) {

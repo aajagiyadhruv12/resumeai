@@ -49,9 +49,12 @@ class AIService:
         raise Exception(f"All Gemini models failed. Last error: {last_error}")
 
     def analyze_resume(self, resume_text, target_role="Software Engineer"):
+        start_time = time.time()
+        logging.info(f"Starting analysis for role: {target_role}")
+        
         prompt = f"""You are an expert resume analyst and senior technical recruiter.
-
-Analyze the resume below for the target role: {target_role}
+  
+  Analyze the resume below for the target role: {target_role}
 
 RESUME:
 {resume_text}
@@ -104,9 +107,11 @@ Return ONLY the JSON object. No markdown, no explanation, no code fences.
 """
         try:
             text = self._call_gemini(prompt)
-            return self._parse_json(text)
+            result = self._parse_json(text)
+            logging.info(f"Analysis completed in {time.time() - start_time:.2f} seconds")
+            return result
         except Exception as e:
-            logging.error(f"Analysis failed: {e}")
+            logging.error(f"Analysis failed after {time.time() - start_time:.2f} seconds: {e}")
             return {"error": "Analysis failed", "details": str(e)}
 
     def generate_improved_resume(self, resume_text, analysis, target_role="Software Engineer"):

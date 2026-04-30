@@ -23,6 +23,13 @@ function App() {
     const email = localStorage.getItem('admin_email');
     if (token && email) setUser(email);
     setAuthLoading(false);
+
+    // Keep the backend alive while the tab is open (ping every 10 minutes)
+    const keepAlive = setInterval(() => {
+      fetch(`${process.env.REACT_APP_API_URL || "https://resumeai-fj7h.onrender.com"}/health`).catch(() => {});
+    }, 10 * 60 * 1000);
+
+    return () => clearInterval(keepAlive);
   }, []);
 
   const onAnalysisComplete = (data, text, role, file = '') => {
