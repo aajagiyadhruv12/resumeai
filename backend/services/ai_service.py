@@ -152,7 +152,7 @@ class AIService:
             response = self._sambanova_client.post(
                 "/chat/completions",
                 json={
-                    "model": "Meta-Llama-3.1-8B-Instruct",
+                    "model": "DeepSeek-V3.1",
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.1,
                     "max_tokens": 4096
