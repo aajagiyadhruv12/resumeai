@@ -1,5 +1,6 @@
 import google.generativeai as genai
 from openai import OpenAI
+import httpx
 import json
 import logging
 import time
@@ -11,6 +12,8 @@ class AIService:
         self._gemini_ready = False
         self._openai_ready = False
         self._openai_client = None
+        self._sambanova_ready = False
+        self._sambanova_client = None
 
         # Initialize Gemini
         try:
@@ -33,6 +36,21 @@ class AIService:
                 logging.error("OPENAI_API_KEY missing for fallback.")
         except Exception as e:
             logging.error(f"OpenAI init error: {e}")
+
+        # Initialize SambaNova as third fallback
+        try:
+            if Config.SAMBANOVA_API_KEY:
+                self._sambanova_client = httpx.Client(
+                    base_url=Config.SAMBANOVA_BASE_URL,
+                    headers={"Authorization": f"Bearer {Config.SAMBANOVA_API_KEY}"},
+                    timeout=120.0
+                )
+                self._sambanova_ready = True
+                logging.info("SambaNova configured as fallback.")
+            else:
+                logging.error("SAMBANOVA_API_KEY missing.")
+        except Exception as e:
+            logging.error(f"SambaNova init error: {e}")
 
     def _call_gemini(self, prompt, is_json=True):
         models = [
@@ -91,7 +109,14 @@ class AIService:
                         break 
         # If Gemini fails, try OpenAI fallback
         if self._openai_ready:
-            return self._call_openai(prompt, is_json)
+            try:
+                return self._call_openai(prompt, is_json)
+            except Exception as openai_err:
+                logging.warning(f"OpenAI failed: {openai_err}")
+                # Try SambaNova if OpenAI fails
+                if self._sambanova_ready:
+                    return self._call_sambanova(prompt, is_json)
+                raise openai_err
 
         raise Exception(f"AI Connection Error. Please verify your GOOGLE_API_KEY in Render settings. (Last error: {last_error})")
 
@@ -115,11 +140,38 @@ class AIService:
             raise Exception("OpenAI returned empty response")
         except Exception as e:
             logging.error(f"OpenAI fallback error: {e}")
+            # Try SambaNova as second fallback
+            if self._sambanova_ready:
+                return self._call_sambanova(prompt, is_json)
             raise Exception(f"AI services unavailable. Gemini quota exceeded and OpenAI fallback failed: {e}")
 
+    def _call_sambanova(self, prompt, is_json=True):
+        """Fallback to SambaNova when OpenAI fails."""
+        try:
+            logging.info("Trying SambaNova as fallback")
+            response = self._sambanova_client.post(
+                "/chat/completions",
+                json={
+                    "model": "Meta-Llama-3.1-8B-Instruct",
+                    "messages": [{"role": "user", "content": prompt}],
+                    "temperature": 0.1,
+                    "max_tokens": 4096
+                }
+            )
+            if response.status_code == 200:
+                data = response.json()
+                text = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                if len(text) > 5:
+                    logging.info("SambaNova fallback successful")
+                    return text
+            raise Exception(f"SambaNova returned status {response.status_code}")
+        except Exception as e:
+            logging.error(f"SambaNova fallback error: {e}")
+            raise Exception(f"AI services unavailable. All providers failed: {e}")
+
     def analyze_resume(self, resume_text, target_role="Software Engineer"):
-        if not self._gemini_ready and not self._openai_ready:
-            return {"error": "AI Service not initialized", "details": "Both GOOGLE_API_KEY and OPENAI_API_KEY are missing or invalid in your Render environment variables."}
+        if not self._gemini_ready and not self._openai_ready and not self._sambanova_ready:
+            return {"error": "AI Service not initialized", "details": "All AI API keys are missing or invalid in your Render environment variables."}
 
         start_time = time.time()
         logging.info(f"Starting analysis for role: {target_role}")
