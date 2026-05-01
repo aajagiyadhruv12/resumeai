@@ -1,4 +1,5 @@
 import google.generativeai as genai
+from openai import OpenAI
 import json
 import logging
 import time
@@ -8,6 +9,10 @@ from config.settings import Config
 class AIService:
     def __init__(self):
         self._gemini_ready = False
+        self._openai_ready = False
+        self._openai_client = None
+
+        # Initialize Gemini
         try:
             if Config.GOOGLE_API_KEY:
                 genai.configure(api_key=Config.GOOGLE_API_KEY)
@@ -17,6 +22,17 @@ class AIService:
                 logging.error("GOOGLE_API_KEY missing.")
         except Exception as e:
             logging.error(f"Gemini init error: {e}")
+
+        # Initialize OpenAI as fallback
+        try:
+            if Config.OPENAI_API_KEY:
+                self._openai_client = OpenAI(api_key=Config.OPENAI_API_KEY)
+                self._openai_ready = True
+                logging.info("OpenAI configured as fallback.")
+            else:
+                logging.error("OPENAI_API_KEY missing for fallback.")
+        except Exception as e:
+            logging.error(f"OpenAI init error: {e}")
 
     def _call_gemini(self, prompt, is_json=True):
         models = [
@@ -73,11 +89,37 @@ class AIService:
                     else:
                         logging.warning(f"{model_name} error: {last_error}")
                         break 
+        # If Gemini fails, try OpenAI fallback
+        if self._openai_ready:
+            return self._call_openai(prompt, is_json)
+
         raise Exception(f"AI Connection Error. Please verify your GOOGLE_API_KEY in Render settings. (Last error: {last_error})")
 
+    def _call_openai(self, prompt, is_json=True):
+        """Fallback to OpenAI when Gemini fails."""
+        try:
+            logging.info("Trying OpenAI GPT-4o Mini as fallback")
+            response = self._openai_client.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": prompt}],
+                temperature=0.1,
+                max_tokens=4096
+            )
+
+            if response and response.choices:
+                text = response.choices[0].message.content.strip()
+                if len(text) > 5:
+                    logging.info("OpenAI fallback successful")
+                    return text
+
+            raise Exception("OpenAI returned empty response")
+        except Exception as e:
+            logging.error(f"OpenAI fallback error: {e}")
+            raise Exception(f"AI services unavailable. Gemini quota exceeded and OpenAI fallback failed: {e}")
+
     def analyze_resume(self, resume_text, target_role="Software Engineer"):
-        if not self._gemini_ready:
-            return {"error": "AI Service not initialized", "details": "The GOOGLE_API_KEY is missing or invalid in your Render environment variables."}
+        if not self._gemini_ready and not self._openai_ready:
+            return {"error": "AI Service not initialized", "details": "Both GOOGLE_API_KEY and OPENAI_API_KEY are missing or invalid in your Render environment variables."}
 
         start_time = time.time()
         logging.info(f"Starting analysis for role: {target_role}")
