@@ -83,7 +83,6 @@ const Landing = ({ onGetStarted }) => {
   const { theme, toggleTheme } = useTheme();
   const [openFaq, setOpenFaq] = useState(null);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [billingCycle, setBillingCycle] = useState('monthly');
   const [faqSearch, setFaqSearch] = useState('');
   const [faqCategory, setFaqCategory] = useState('All');
   const [testimonialIndex, setTestimonialIndex] = useState(0);
@@ -137,41 +136,7 @@ const Landing = ({ onGetStarted }) => {
     { icon: 'bi-person-check', title: 'Recruiter Insights', desc: 'See your resume through a recruiter\'s eyes. Get a hiring recommendation, risk indicators, and competitive analysis.', color: '#14b8a6' },
   ];
 
-  const plans = [
-    {
-      name: 'Free',
-      monthly: '$0',
-      yearly: '$0',
-      period: 'forever',
-      desc: 'Perfect for getting started',
-      features: ['3 Resume Analyses', 'Basic ATS Scoring', 'Resume Builder Access', '1 Template'],
-      cta: 'Get Started',
-      popular: false,
-      gradient: 'from-gray-500'
-    },
-    {
-      name: 'Pro',
-      monthly: '$12',
-      yearly: '$8',
-      period: billingCycle === 'monthly' ? '/month' : '/month',
-      desc: 'For serious job seekers',
-      features: ['Unlimited Analyses', 'Advanced ATS Scoring', 'All 4 Templates', 'Job Match Scoring', 'Cover Letter Generator', 'Interview Prep', 'Priority Support'],
-      cta: 'Start Free Trial',
-      popular: true,
-      gradient: 'from-primary-500'
-    },
-    {
-      name: 'Enterprise',
-      monthly: '$29',
-      yearly: '$22',
-      period: '/month',
-      desc: 'For career growth & teams',
-      features: ['Everything in Pro', 'Analytics Dashboard', 'Resume Comparison', 'Recruiter View', 'AI Chat Assistant', 'API Access', 'Team Collaboration'],
-      cta: 'Contact Sales',
-      popular: false,
-      gradient: 'from-purple-500'
-    },
-  ];
+
 
   return (
     <div className="landing-page">
@@ -184,7 +149,6 @@ const Landing = ({ onGetStarted }) => {
           </div>
           <div className={`landing-nav-links ${mobileMenu ? 'open' : ''}`}>
             <button onClick={() => scrollTo('features')}>Features</button>
-            <button onClick={() => scrollTo('pricing')}>Pricing</button>
             <button onClick={() => scrollTo('testimonials')}>Testimonials</button>
             <button onClick={toggleTheme} className="theme-toggle-btn" title="Toggle theme">
               <i className={`bi ${theme === 'dark' ? 'bi-sun-fill' : 'bi-moon-fill'}`}></i>
@@ -311,111 +275,6 @@ const Landing = ({ onGetStarted }) => {
         </div>
       </section>
 
-      {/* ── PRICING ── */}
-      <section className="landing-pricing" id="pricing">
-        <div className="landing-container">
-          <FadeInSection>
-            <div className="section-label" style={{ color: 'var(--warning)' }}>Pricing</div>
-            <h2 className="section-title">Simple, Transparent <span className="text-warning">Pricing</span></h2>
-            <p className="section-subtitle">Start free, upgrade when you need more power</p>
-          </FadeInSection>
-
-          {/* Billing Toggle */}
-          <div className="pricing-toggle-wrapper">
-            <FadeInSection delay={0.1}>
-              <div className="pricing-toggle">
-                <span className={`toggle-label ${billingCycle === 'monthly' ? 'active' : ''}`}>Monthly</span>
-                <button
-                  className={`toggle-switch ${billingCycle === 'yearly' ? 'active' : ''}`}
-                  onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')}
-                  aria-label="Toggle billing cycle"
-                >
-                  <div className="toggle-thumb"></div>
-                </button>
-                <span className={`toggle-label ${billingCycle === 'yearly' ? 'active' : ''}`}>
-                  Yearly
-                  <span className="save-badge">Save 33%</span>
-                </span>
-              </div>
-            </FadeInSection>
-          </div>
-
-          <div className="pricing-grid">
-            {plans.map((p, i) => {
-              const displayPrice = p.name === 'Free' ? '$0' : (billingCycle === 'monthly' ? p.monthly : p.yearly);
-              return (
-              <FadeInSection key={i} delay={i * 0.1}>
-                <div className={`pricing-card ${p.popular ? 'popular' : ''}`}>
-                  {p.popular && <div className="popular-badge">Most Popular</div>}
-                  <div className="pricing-card-glow"></div>
-                  <h3 className="pricing-name">{p.name}</h3>
-                  <div className="pricing-price">
-                    <span className="price-amount" key={displayPrice}>{displayPrice}</span>
-                    {p.name !== 'Free' && (
-                      <span className="price-period">{billingCycle === 'monthly' ? '/month' : `/month, billed yearly`}</span>
-                    )}
-                    {p.name === 'Free' && <span className="price-period" style={{ display: 'block', fontSize: '0.9rem', marginTop: 4 }}>{p.period}</span>}
-                  </div>
-                  {billingCycle === 'yearly' && p.name !== 'Free' && (
-                    <div className="price-yearly-total">
-                      {p.name === 'Pro' ? '$96' : '$264'} billed annually
-                    </div>
-                  )}
-                  <p className="pricing-desc">{p.desc}</p>
-                  <ul className="pricing-features">
-                    {p.features.map((f, j) => (
-                      <li key={j}><i className="bi bi-check-circle-fill text-success me-2"></i>{f}</li>
-                    ))}
-                  </ul>
-                  <button className={`btn ${p.popular ? 'btn-primary' : 'btn-secondary'} w-100`} onClick={onGetStarted}>
-                    {p.cta}
-                  </button>
-                  {p.popular && (
-                    <div className="pricing-guarantee">
-                      <i className="bi bi-shield-check me-1"></i> 30-day money-back guarantee
-                    </div>
-                  )}
-                </div>
-              </FadeInSection>
-              );
-            })}
-          </div>
-
-          {/* Feature Comparison */}
-          <FadeInSection delay={0.3}>
-            <div className="pricing-compare">
-              <h3 className="compare-title">Compare Plans</h3>
-              <div className="compare-table">
-                <div className="compare-row compare-header">
-                  <div className="compare-feature">Feature</div>
-                  <div className="compare-plan">Free</div>
-                  <div className="compare-plan popular">Pro</div>
-                  <div className="compare-plan">Enterprise</div>
-                </div>
-                {[
-                  ['Resume Analyses', '3', 'Unlimited', 'Unlimited'],
-                  ['ATS Scoring', 'Basic', 'Advanced', 'Advanced + API'],
-                  ['Templates', '1', '4', '4 + Custom'],
-                  ['Job Match Scoring', '—', '✓', '✓'],
-                  ['Cover Letter Generator', '—', '✓', '✓'],
-                  ['Interview Prep', '—', '✓', '✓'],
-                  ['Analytics Dashboard', '—', '—', '✓'],
-                  ['Resume Comparison', '—', '—', '✓'],
-                  ['AI Chat Assistant', '—', '—', '✓'],
-                  ['Priority Support', '—', '✓', '✓'],
-                ].map((row, i) => (
-                  <div key={i} className={`compare-row ${i % 2 === 0 ? 'even' : 'odd'}`}>
-                    <div className="compare-feature">{row[0]}</div>
-                    <div className="compare-plan"><span className={`check-icon ${row[1] === '—' || row[1] === 'Basic' || row[1] === '1' || row[1] === '3' ? 'check-basic' : 'check-pro'}`}>{row[1]}</span></div>
-                    <div className="compare-plan popular"><span className={`check-icon ${row[2] === '—' ? '' : 'check-pro'}`}>{row[2]}</span></div>
-                    <div className="compare-plan"><span className={`check-icon ${row[3] === '—' ? '' : 'check-pro'}`}>{row[3]}</span></div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </FadeInSection>
-        </div>
-      </section>
 
       {/* ── TESTIMONIALS ── */}
       <section className="landing-testimonials" id="testimonials">
