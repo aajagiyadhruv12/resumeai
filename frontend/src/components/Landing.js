@@ -37,19 +37,7 @@ const Counter = ({ end, duration = 2, suffix = '' }) => {
   return <span ref={ref}>{count}{suffix}</span>;
 };
 
-/* ─── Testimonials ─── */
-const testimonials = [
-  { name: 'Sarah Chen', role: 'Software Engineer at Google', text: 'The AI analysis helped me identify exactly what keywords I was missing. My interview call rate tripled after implementing the suggestions. Absolutely invaluable.', initials: 'SC', rating: 5, color: 'linear-gradient(135deg, #6366f1, #8b5cf6)', result: '3x more interview calls', companyIcon: 'bi-google' },
-  { name: 'James Rodriguez', role: 'Product Manager at Stripe', text: 'I was stuck in the resume black hole for months. This tool not only fixed my ATS score but the Resume Builder made my experience sound 10x more impressive.', initials: 'JR', rating: 5, color: 'linear-gradient(135deg, #10b981, #059669)', result: 'ATS score: 55 → 94', companyIcon: 'bi-stripe' },
-  { name: 'Priya Patel', role: 'Data Scientist at Netflix', text: 'The job matching feature is incredible. I pasted a job description and it showed me exactly what skills to highlight. Landed my dream role in 3 weeks!', initials: 'PP', rating: 5, color: 'linear-gradient(135deg, #ef4444, #dc2626)', result: 'Landed role in 3 weeks', companyIcon: 'bi-play-btn' },
-  { name: 'Michael Thompson', role: 'DevOps Engineer at AWS', text: 'From 55 to 92 ATS score in one revision. The bullet point rewriting alone is worth the price. This is the best resume tool I have ever used.', initials: 'MT', rating: 5, color: 'linear-gradient(135deg, #f59e0b, #d97706)', result: '+37 ATS points gained', companyIcon: 'bi-cloud' },
-];
 
-/* ─── Company Logos (as icons) ─── */
-const companyLogos = [
-  'bi-google', 'bi-microsoft', 'bi-amazon', 'bi-apple', 'bi-meta',
-  'bi-linkedin', 'bi-github', 'bi-twitter-x', 'bi-slack', 'bi-zoom',
-];
 
 /* ─── Fade In Section Wrapper ─── */
 const FadeInSection = ({ children, delay = 0 }) => (
@@ -69,33 +57,6 @@ const FadeInSection = ({ children, delay = 0 }) => (
 const Landing = ({ onGetStarted }) => {
   const { theme, toggleTheme } = useTheme();
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [testimonialIndex, setTestimonialIndex] = useState(0);
-  const [testimonialAuto, setTestimonialAuto] = useState(true);
-
-  // Auto-rotate testimonials
-  useEffect(() => {
-    if (!testimonialAuto) return;
-    const interval = setInterval(() => {
-      setTestimonialIndex(prev => (prev + 1) % testimonials.length);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [testimonialAuto]);
-
-  const prevTestimonial = () => {
-    setTestimonialAuto(false);
-    setTestimonialIndex(prev => (prev - 1 + testimonials.length) % testimonials.length);
-  };
-
-  const nextTestimonial = () => {
-    setTestimonialAuto(false);
-    setTestimonialIndex(prev => (prev + 1) % testimonials.length);
-  };
-
-  const goToTestimonial = (i) => {
-    setTestimonialAuto(false);
-    setTestimonialIndex(i);
-  };
-
   const scrollTo = (id) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
     setMobileMenu(false);
@@ -125,7 +86,6 @@ const Landing = ({ onGetStarted }) => {
           </div>
           <div className={`landing-nav-links ${mobileMenu ? 'open' : ''}`}>
             <button onClick={() => scrollTo('features')}>Features</button>
-            <button onClick={() => scrollTo('testimonials')}>Testimonials</button>
             <button onClick={toggleTheme} className="theme-toggle-btn" title="Toggle theme">
               <i className={`bi ${theme === 'dark' ? 'bi-sun-fill' : 'bi-moon-fill'}`}></i>
             </button>
@@ -252,128 +212,6 @@ const Landing = ({ onGetStarted }) => {
       </section>
 
 
-      {/* ── TESTIMONIALS ── */}
-      <section className="landing-testimonials" id="testimonials">
-        <div className="landing-container">
-          <FadeInSection>
-            <div className="section-label" style={{ color: 'var(--info)' }}>Testimonials</div>
-            <h2 className="section-title">Loved by <span className="text-info">Job Seekers</span></h2>
-            <p className="section-subtitle">Join thousands who landed their dream roles at top companies</p>
-          </FadeInSection>
-
-          {/* Company Logo Strip */}
-          <FadeInSection delay={0.1}>
-            <div className="trust-bar">
-              <span className="trust-label">Trusted by job seekers from</span>
-              <div className="trust-logos">
-                {companyLogos.map((logo, i) => (
-                  <div key={i} className="trust-logo" title={logo.replace('bi-', '').charAt(0).toUpperCase() + logo.replace('bi-', '').slice(1)}>
-                    <i className={`bi ${logo}`}></i>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </FadeInSection>
-
-          {/* Testimonial Carousel */}
-          <FadeInSection delay={0.2}>
-            <div className="testimonial-carousel">
-              <button className="carousel-arrow carousel-prev" onClick={prevTestimonial} aria-label="Previous testimonial">
-                <i className="bi bi-chevron-left"></i>
-              </button>
-
-              <div className="carousel-track">
-                {testimonials.map((t, i) => (
-                  <motion.div
-                    key={i}
-                    className={`testimonial-card ${i === testimonialIndex ? 'active' : ''}`}
-                    initial={{ opacity: 0, scale: 0.9, x: i === testimonialIndex ? 50 : 0 }}
-                    animate={{
-                      opacity: i === testimonialIndex ? 1 : 0,
-                      scale: i === testimonialIndex ? 1 : 0.9,
-                      x: i === testimonialIndex ? 0 : (i < testimonialIndex ? -50 : 50),
-                    }}
-                    transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
-                  >
-                    <div className="testimonial-card-inner">
-                      <div className="testimonial-top">
-                        <div className="testimonial-avatar" style={{ background: t.color }}>
-                          {t.initials}
-                          <div className="verified-badge">
-                            <i className="bi bi-patch-check-fill"></i>
-                          </div>
-                        </div>
-                        <div className="testimonial-meta">
-                          <div className="testimonial-name">{t.name}</div>
-                          <div className="testimonial-role">{t.role}</div>
-                        </div>
-                        <div className="testimonial-stars">
-                          {[...Array(t.rating)].map((_, j) => (
-                            <motion.i
-                              key={j}
-                              className="bi bi-star-fill"
-                              initial={{ opacity: 0, scale: 0 }}
-                              animate={i === testimonialIndex ? { opacity: 1, scale: 1 } : {}}
-                              transition={{ delay: 0.3 + j * 0.1, type: 'spring', stiffness: 300 }}
-                            ></motion.i>
-                          ))}
-                        </div>
-                      </div>
-                      <div className="testimonial-quote-wrap">
-                        <i className="bi bi-quote testimonial-quote-icon"></i>
-                        <p className="testimonial-text">"{t.text}"</p>
-                      </div>
-                      <div className="testimonial-result">
-                        <div className="result-badge">
-                          <i className="bi bi-graph-up-arrow me-1"></i>
-                          {t.result}
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
-                ))}
-              </div>
-
-              <button className="carousel-arrow carousel-next" onClick={nextTestimonial} aria-label="Next testimonial">
-                <i className="bi bi-chevron-right"></i>
-              </button>
-
-              <div className="carousel-dots">
-                {testimonials.map((_, i) => (
-                  <button
-                    key={i}
-                    className={`carousel-dot ${i === testimonialIndex ? 'active' : ''}`}
-                    onClick={() => goToTestimonial(i)}
-                    aria-label={`Go to testimonial ${i + 1}`}
-                  />
-                ))}
-              </div>
-            </div>
-          </FadeInSection>
-
-          {/* Stats Row */}
-          <FadeInSection delay={0.3}>
-            <div className="testimonial-stats">
-              <div className="testi-stat">
-                <span className="testi-stat-value">50,000+</span>
-                <span className="testi-stat-label">Resumes Analyzed</span>
-              </div>
-              <div className="testi-stat">
-                <span className="testi-stat-value">92%</span>
-                <span className="testi-stat-label">Avg. ATS Score</span>
-              </div>
-              <div className="testi-stat">
-                <span className="testi-stat-value">3x</span>
-                <span className="testi-stat-label">More Interviews</span>
-              </div>
-              <div className="testi-stat">
-                <span className="testi-stat-value">4.9★</span>
-                <span className="testi-stat-label">User Rating</span>
-              </div>
-            </div>
-          </FadeInSection>
-        </div>
-      </section>
 
       {/* ── CTA ── */}
       <section className="landing-cta">
