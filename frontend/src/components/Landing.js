@@ -1,41 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion } from 'framer-motion';
-
-/* ─── Animated Counter ─── */
-const Counter = ({ end, duration = 2, suffix = '' }) => {
-  const [count, setCount] = useState(0);
-  const ref = useRef(null);
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const observer = new IntersectionObserver(([entry]) => {
-      if (entry.isIntersecting) { setVisible(true); observer.disconnect(); }
-    }, { threshold: 0.5 });
-    if (ref.current) observer.observe(ref.current);
-    return () => observer.disconnect();
-  }, []);
-
-  useEffect(() => {
-    if (!visible) return;
-    let startTime = null;
-    const startVal = 1;
-    const totalSteps = end - startVal;
-    let rafId;
-    const step = (timestamp) => {
-      if (!startTime) startTime = timestamp;
-      const elapsed = (timestamp - startTime) / 1000;
-      const progress = Math.min(elapsed / duration, 1);
-      const eased = 1 - Math.pow(1 - progress, 3);
-      setCount(Math.floor(startVal + totalSteps * eased));
-      if (progress < 1) rafId = requestAnimationFrame(step);
-    };
-    rafId = requestAnimationFrame(step);
-    return () => cancelAnimationFrame(rafId);
-  }, [visible, end, duration]);
-
-  return <span ref={ref}>{count}{suffix}</span>;
-};
 
 
 
@@ -139,26 +104,6 @@ const Landing = ({ onGetStarted }) => {
         </div>
       </section>
 
-      {/* ── STATS ── */}
-      <section className="landing-stats">
-        <div className="landing-container">
-          <div className="stats-grid">
-            {[
-              { end: 50000, suffix: '+', label: 'Resumes Analyzed' },
-              { end: 92, suffix: '%', label: 'Average ATS Score' },
-              { end: 3, suffix: 'x', label: 'More Interview Calls' },
-              { end: 150, suffix: '+', label: 'Job Roles Supported' },
-            ].map((s, i) => (
-              <div key={i} className="stat-card">
-                <div className="stat-number">
-                  <Counter end={s.end} suffix={s.suffix} />
-                </div>
-                <div className="stat-label">{s.label}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
       {/* ── FEATURES ── */}
       <section className="landing-features" id="features">
