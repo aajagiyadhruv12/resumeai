@@ -197,7 +197,7 @@ const SectionCard = ({ icon, title, color, children }) => (
   </div>
 );
 
-const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, setLoading, setError }) => {
+const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, setLoading, setError, openBuilder }) => {
   const [generatedResume, setGeneratedResume] = useState('');
   const [generating, setGenerating] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
@@ -477,12 +477,14 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
             <div className="two-col-grid">
               <SectionCard icon="bi-cpu" title="Technical Skills" color="primary">
                 <div className="tag-cloud">
-                  {analysis.skills_extraction?.technical_skills?.map((s, i) => <span key={i} className="tag tag-primary">{s}</span>)}
+                  {Array.isArray(analysis.skills_extraction?.technical_skills) && analysis.skills_extraction.technical_skills.map((s, i) => <span key={i} className="tag tag-primary">{s}</span>)}
+                  {!Array.isArray(analysis.skills_extraction?.technical_skills) && <span className="text-muted">No technical skills detected</span>}
                 </div>
               </SectionCard>
               <SectionCard icon="bi-people" title="Soft Skills" color="warning">
                 <div className="tag-cloud">
-                  {analysis.skills_extraction?.soft_skills?.map((s, i) => <span key={i} className="tag tag-warning">{s}</span>)}
+                  {Array.isArray(analysis.skills_extraction?.soft_skills) && analysis.skills_extraction.soft_skills.map((s, i) => <span key={i} className="tag tag-warning">{s}</span>)}
+                  {!Array.isArray(analysis.skills_extraction?.soft_skills) && <span className="text-muted">No soft skills detected</span>}
                 </div>
               </SectionCard>
             </div>
@@ -490,7 +492,9 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
             {/* 4. Skill Gap Analysis */}
             <SectionCard icon="bi-exclamation-triangle-fill" title="Skill Gaps" color="warning">
               <div className="tag-cloud">
-                {analysis.skill_gap_analysis?.map((g, i) => <span key={i} className="tag tag-danger">{g}</span>)}
+                {Array.isArray(analysis.skill_gap_analysis) && analysis.skill_gap_analysis.map((g, i) => <span key={i} className="tag tag-danger">{g}</span>)}
+                {!Array.isArray(analysis.skill_gap_analysis) && analysis.skill_gap_analysis?.missing_skills?.map((g, i) => <span key={i} className="tag tag-danger">{g}</span>)}
+                {(!analysis.skill_gap_analysis || (Array.isArray(analysis.skill_gap_analysis) && analysis.skill_gap_analysis.length === 0)) && <span className="text-muted">No skill gaps identified</span>}
               </div>
             </SectionCard>
 
@@ -501,19 +505,19 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
                 <p><strong>Experience:</strong> {analysis.experience_evaluation?.years_of_experience} years</p>
                 <p><strong>Impact:</strong> {analysis.experience_evaluation?.impact}</p>
               </div>
-              {analysis.experience_evaluation?.weak_bullets?.length > 0 && (
+              {Array.isArray(analysis.experience_evaluation?.weak_bullets) && analysis.experience_evaluation.weak_bullets.length > 0 && (
                 <div className="mt-3">
                   <p className="text-danger fw-semibold small">Weak Points:</p>
                   <ul className="check-list">
-                    {analysis.experience_evaluation?.weak_bullets?.map((b, i) => <li key={i}><i className="bi bi-x-circle-fill text-danger me-2"></i>{b}</li>)}
+                    {analysis.experience_evaluation.weak_bullets.map((b, i) => <li key={i}><i className="bi bi-x-circle-fill text-danger me-2"></i>{b}</li>)}
                   </ul>
                 </div>
               )}
-              {analysis.experience_evaluation?.suggestions?.length > 0 && (
+              {Array.isArray(analysis.experience_evaluation?.suggestions) && analysis.experience_evaluation.suggestions.length > 0 && (
                 <div className="mt-3">
                   <p className="text-success fw-semibold small">Suggestions:</p>
                   <ul className="check-list">
-                    {analysis.experience_evaluation?.suggestions?.map((s, i) => <li key={i}><i className="bi bi-check-circle-fill text-success me-2"></i>{s}</li>)}
+                    {analysis.experience_evaluation.suggestions.map((s, i) => <li key={i}><i className="bi bi-check-circle-fill text-success me-2"></i>{s}</li>)}
                   </ul>
                 </div>
               )}
@@ -525,10 +529,10 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
                 <p><strong>Project Count:</strong> {analysis.projects_evaluation?.project_count}</p>
                 <p><strong>Technical Depth:</strong> {analysis.projects_evaluation?.technical_depth}</p>
               </div>
-              {analysis.projects_evaluation?.suggestions?.length > 0 && (
+              {Array.isArray(analysis.projects_evaluation?.suggestions) && analysis.projects_evaluation.suggestions.length > 0 && (
                 <div className="mt-3">
                   <ul className="check-list">
-                    {analysis.projects_evaluation?.suggestions?.map((s, i) => <li key={i}><i className="bi bi-lightbulb-fill text-warning me-2"></i>{s}</li>)}
+                    {analysis.projects_evaluation.suggestions.map((s, i) => <li key={i}><i className="bi bi-lightbulb-fill text-warning me-2"></i>{s}</li>)}
                   </ul>
                 </div>
               )}
@@ -548,11 +552,13 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
             <SectionCard icon="bi-key-fill" title="ATS Keywords" color="info">
               <p className="section-sublabel">Missing Keywords</p>
               <div className="tag-cloud mb-2">
-                {analysis.keyword_ats_optimization?.missing_keywords?.map((k, i) => <span key={i} className="tag tag-danger">{k}</span>)}
+                {Array.isArray(analysis.keyword_ats_optimization?.missing_keywords) && analysis.keyword_ats_optimization.missing_keywords.map((k, i) => <span key={i} className="tag tag-danger">{k}</span>)}
+                {!Array.isArray(analysis.keyword_ats_optimization?.missing_keywords) && <span className="text-muted">None</span>}
               </div>
               <p className="section-sublabel">Suggested Keywords</p>
               <div className="tag-cloud">
-                {analysis.keyword_ats_optimization?.suggested_keywords?.map((k, i) => <span key={i} className="tag tag-success">{k}</span>)}
+                {Array.isArray(analysis.keyword_ats_optimization?.suggested_keywords) && analysis.keyword_ats_optimization.suggested_keywords.map((k, i) => <span key={i} className="tag tag-success">{k}</span>)}
+                {!Array.isArray(analysis.keyword_ats_optimization?.suggested_keywords) && <span className="text-muted">None</span>}
               </div>
             </SectionCard>
 
@@ -560,12 +566,14 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
             <div className="two-col-grid">
               <SectionCard icon="bi-hand-thumbs-up-fill" title="Strengths" color="success">
                 <ul className="check-list">
-                  {analysis.strengths?.map((s, i) => <li key={i}><i className="bi bi-check-circle-fill text-success me-2"></i>{s}</li>)}
+                  {Array.isArray(analysis.strengths) && analysis.strengths.map((s, i) => <li key={i}><i className="bi bi-check-circle-fill text-success me-2"></i>{s}</li>)}
+                  {!Array.isArray(analysis.strengths) && <span className="text-muted">None identified</span>}
                 </ul>
               </SectionCard>
               <SectionCard icon="bi-hand-thumbs-down-fill" title="Weaknesses" color="danger">
                 <ul className="check-list">
-                  {analysis.weaknesses?.map((w, i) => <li key={i}><i className="bi bi-x-circle-fill text-danger me-2"></i>{w}</li>)}
+                  {Array.isArray(analysis.weaknesses) && analysis.weaknesses.map((w, i) => <li key={i}><i className="bi bi-x-circle-fill text-danger me-2"></i>{w}</li>)}
+                  {!Array.isArray(analysis.weaknesses) && <span className="text-muted">None identified</span>}
                 </ul>
               </SectionCard>
             </div>
@@ -573,14 +581,15 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
             {/* 12. Actionable Improvements */}
             <SectionCard icon="bi-lightbulb-fill" title="Actionable Improvements" color="success">
               <ol className="improvement-list">
-                {analysis.actionable_improvements?.map((item, i) => (
+                {Array.isArray(analysis.actionable_improvements) && analysis.actionable_improvements.map((item, i) => (
                   <li key={i}><span className="improvement-num">{i + 1}</span>{item}</li>
                 ))}
+                {!Array.isArray(analysis.actionable_improvements) && <span className="text-muted">No improvements suggested</span>}
               </ol>
             </SectionCard>
 
             {/* 13. Job Role Matching */}
-            {analysis.job_role_matching?.length > 0 && (
+            {Array.isArray(analysis.job_role_matching) && analysis.job_role_matching.length > 0 && (
               <SectionCard icon="bi-briefcase-fill" title="Job Role Matching" color="primary">
                 {analysis.job_role_matching.map((j, i) => (
                   <div key={i} className="role-match-item">
@@ -599,12 +608,13 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
 
             {/* 14. Bullet Point Rewriting */}
             <SectionCard icon="bi-pencil-fill" title="Bullet Rewriting" color="info">
-              {analysis.bullet_point_rewriting?.map((b, i) => (
+              {Array.isArray(analysis.bullet_point_rewriting) && analysis.bullet_point_rewriting.map((b, i) => (
                 <div key={i} className="bullet-rewrite">
                   <div className="bullet-old"><i className="bi bi-x-lg me-2 text-danger"></i><del>{b.old}</del></div>
                   <div className="bullet-new"><i className="bi bi-check-lg me-2 text-success"></i>{b.new}</div>
                 </div>
               ))}
+              {!Array.isArray(analysis.bullet_point_rewriting) && <span className="text-muted">No bullet points to rewrite</span>}
             </SectionCard>
 
             {/* Enhanced Projects */}
@@ -1203,9 +1213,14 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
               </SectionCard>
             )}
 
-            <button className="btn-generate w-100 mt-3" onClick={handleGenerate} disabled={generating}>
-              {generating ? <><span className="spinner-border spinner-border-sm me-2"></span>Generating...</> : <><i className="bi bi-stars me-2"></i>Generate Improved Resume</>}
-            </button>
+            <div className="d-flex gap-2 mt-3">
+              <button className="btn-generate flex-grow-1" onClick={handleGenerate} disabled={generating}>
+                {generating ? <><span className="spinner-border spinner-border-sm me-2"></span>Generating...</> : <><i className="bi bi-stars me-2"></i>Generate Improved Resume</>}
+              </button>
+              <button className="btn btn-outline-primary px-4" onClick={() => (openBuilder || (() => {}))(resumeText, targetRole)} title="Open in Resume Builder">
+                <i className="bi bi-layout-text-window-reverse me-2"></i>Builder
+              </button>
+            </div>
           </div>
         )}
 

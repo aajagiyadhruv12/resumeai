@@ -102,6 +102,20 @@ class ApiService {
     return result;
   }
 
+  async getSuggestion(sectionType, currentText, targetRole = 'Software Engineer', resumeContext = '') {
+    await wakeUpBackend();
+    return this._handleFetch(`${API_URL}/suggest`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        section_type: sectionType,
+        current_text: currentText,
+        target_role: targetRole,
+        resume_context: resumeContext
+      }),
+    }, 60000);
+  }
+
   async login(username, password, email) {
     await wakeUpBackend();
     return this._handleFetch(`${API_URL}/admin/login`, {

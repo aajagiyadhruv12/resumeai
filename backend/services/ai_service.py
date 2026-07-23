@@ -54,10 +54,10 @@ class AIService:
 
     def _call_gemini(self, prompt, is_json=True):
         models = [
-            'gemini-1.5-flash', 
-            'gemini-1.5-flash-8b',
-            'gemini-1.5-pro',
-            'gemini-2.0-flash-exp'
+            'gemini-2.5-flash',
+            'gemini-2.0-flash',
+            'gemini-flash-latest',
+            'gemini-1.5-flash',
         ]
         
         # Configure generation config with JSON mode if requested
@@ -176,18 +176,14 @@ class AIService:
         start_time = time.time()
         logging.info(f"Starting analysis for role: {target_role}")
         
-        prompt = f"""You are an expert resume analyst. Analyze this resume for the role: {target_role}
+        prompt = f"""Analyze resume for {target_role}. Return JSON with keys:
+overall_score, ats_score, professional_summary, final_verdict,
+skills_extraction (technical_skills, soft_skills), skill_gap_analysis, experience_evaluation,
+projects_evaluation, education_evaluation, structure_formatting, keyword_ats_optimization,
+strengths, weaknesses, actionable_improvements, job_role_matching, bullet_point_rewriting.
 
-RESUME TEXT:
+RESUME:
 {resume_text}
-
-Provide a detailed analysis in JSON format with these exact keys:
-overall_score (0-100), ats_score (0-100), professional_summary (2-3 sentences), final_verdict, 
-skills_extraction (technical_skills, soft_skills arrays), skill_gap_analysis (array), 
-experience_evaluation (impact, weak_bullets, suggestions), projects_evaluation (technical_depth, suggestions), 
-education_evaluation, structure_formatting, keyword_ats_optimization (missing_keywords, suggested_keywords), 
-strengths (array), weaknesses (array), actionable_improvements (array), 
-job_role_matching (array of {{role, match_percentage, reason}}), bullet_point_rewriting (array of {{old, new}}).
 """
         try:
             text = self._call_gemini(prompt, is_json=True)
@@ -265,6 +261,82 @@ STRICT RULES:
         except Exception as e:
             logging.error(f"Generation failed: {e}")
             return {"error": "Generation failed", "details": str(e)}
+
+    def suggest_improvement(self, section_type, current_text, target_role, resume_context=""):
+        """Generate AI suggestions for a specific resume section."""
+        if not self._gemini_ready and not self._openai_ready and not self._sambanova_ready:
+            return {"error": "AI Service not initialized"}
+
+        prompts = {
+            "summary": f"""Improve this professional summary for a {target_role} role.
+Current: "{current_text}"
+
+Return JSON with:
+- improved_version: rewritten summary (2-4 sentences)
+- suggestions: array of specific tips
+- keywords: array of keywords to include
+""",
+            "experience_bullet": f"""Rewrite this resume bullet point for a {target_role} role to be more impactful and quantified.
+Current: "{current_text}"
+
+Return JSON with:
+- improved_version: rewritten bullet
+- impact_score: 0-100
+- why_better: brief explanation
+- suggested_metrics: what metrics could be added
+""",
+            "skills": f"""Analyze and improve the skills section for a {target_role} role.
+Current skills: "{current_text}"
+
+Return JSON with:
+- recommended_skills: array of skills to add
+- skill_categories: how to organize skills
+- suggestions: array of tips
+""",
+            "project": f"""Improve this project description for a {target_role} role.
+Current: "{current_text}"
+
+Return JSON with:
+- improved_version: rewritten description
+- technical_depth_score: 0-100
+- suggestions: array of tips
+- keywords_to_highlight: array
+""",
+            "experience": f"""Rewrite this experience entry for a {target_role} role to be more impactful.
+Current: "{current_text}"
+
+Return JSON with:
+- improved_version: rewritten experience description
+- bullet_rewrites: array of {{old, new}} for each bullet
+- suggestions: array of tips
+""",
+            "education": f"""Improve this education entry.
+Current: "{current_text}"
+
+Return JSON with:
+- improved_version: rewritten
+- suggestions: array of tips
+"""
+        }
+
+        prompt = prompts.get(section_type, f"""Improve this {section_type} section for a {target_role} role.
+Current: "{current_text}"
+
+Return JSON with:
+- improved_version: rewritten content
+- suggestions: array of tips
+""")
+
+        if resume_context:
+            prompt += f"\n\nResume Context:\n{resume_context[:1000]}"
+
+        try:
+            text = self._call_gemini(prompt, is_json=True)
+            result = self._parse_json(text)
+            return result
+        except Exception as e:
+            logging.error(f"Suggestion failed: {e}")
+            return {"error": str(e), "improved_version": current_text, "suggestions": []}
 
     def _parse_json(self, text):
         try:
