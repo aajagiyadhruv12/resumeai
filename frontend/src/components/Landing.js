@@ -108,12 +108,6 @@ const Landing = ({ onGetStarted }) => {
       {/* ── FEATURES ── */}
       <section className="landing-features" id="features">
         <div className="landing-container">
-          <FadeInSection>
-            <div className="section-label">Features</div>
-            <h2 className="section-title">Everything You Need to <span className="text-gradient">Land the Job</span></h2>
-            <p className="section-subtitle">From AI analysis to interview prep — your complete career toolkit</p>
-          </FadeInSection>
-
           <div className="features-grid">
             {features.map((f, i) => (
               <FadeInSection key={i} delay={i * 0.05}>
