@@ -174,13 +174,13 @@ const ScoreRing = ({ score, label, color }) => {
   return (
     <div className="score-ring-card">
       <svg width="100" height="100" viewBox="0 0 100 100">
-        <circle cx="50" cy="50" r={radius} fill="none" stroke="#e2e8f0" strokeWidth="8"/>
+        <circle cx="50" cy="50" r={radius} fill="none" className="score-ring-track" strokeWidth="8"/>
         <circle cx="50" cy="50" r={radius} fill="none" stroke={color} strokeWidth="8"
           strokeDasharray={circumference} strokeDashoffset={offset}
           strokeLinecap="round" transform="rotate(-90 50 50)"
           style={{ transition: 'stroke-dashoffset 1s ease' }}/>
         <text x="50" y="46" textAnchor="middle" fontSize="18" fontWeight="800" fill={color}>{score}</text>
-        <text x="50" y="60" textAnchor="middle" fontSize="9" fill="#94a3b8">/100</text>
+        <text x="50" y="60" textAnchor="middle" fontSize="9" className="score-ring-label">/100</text>
       </svg>
       <p className="score-label">{label}</p>
     </div>
@@ -458,14 +458,14 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
                 <ScoreRing score={analysis.overall_score} label="Overall Score" color="#4f46e5" />
                 <ScoreRing score={analysis.ats_score} label="ATS Score" color="#06b6d4" />
               </div>
-              <div className="verdict-pill" style={isStrong ? { background: '#f0fdf4', borderColor: '#10b981', color: '#065f46' } : { background: '#fffbeb', borderColor: '#f59e0b', color: '#92400e' }}>
+              <div className={`verdict-pill ${isStrong ? 'verdict-strong' : 'verdict-warning'}`}>
                 <i className={`bi ${isStrong ? 'bi-patch-check-fill' : 'bi-info-circle-fill'} me-2`}></i>
                 <strong>Verdict:</strong>&nbsp;{analysis.final_verdict}
               </div>
             </div>
 
             {/* 15. Professional Summary */}
-            <div className="summary-card" style={{ background: 'linear-gradient(135deg, #059669 0%, #047857 100%)' }}>
+            <div className="summary-card">
               <div className="d-flex align-items-center gap-2 mb-3">
                 <i className="bi bi-person-badge"></i>
                 <span className="text-white-50 text-uppercase small fw-bold" style={{ letterSpacing: '1px' }}>Professional Summary</span>
@@ -595,10 +595,10 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
                   <div key={i} className="role-match-item">
                     <div className="d-flex justify-content-between mb-1">
                       <span className="fw-semibold small">{j.role}</span>
-                      <span className="fw-bold small" style={{ color: j.match_percentage >= 70 ? '#10b981' : j.match_percentage >= 40 ? '#f59e0b' : '#ef4444' }}>{j.match_percentage}%</span>
+                      <span className={`fw-bold small match-text-${j.match_percentage >= 70 ? 'high' : j.match_percentage >= 40 ? 'medium' : 'low'}`}>{j.match_percentage}%</span>
                     </div>
                     <div className="match-bar">
-                      <div className="match-fill" style={{ width: `${j.match_percentage}%`, background: j.match_percentage >= 70 ? '#10b981' : j.match_percentage >= 40 ? '#f59e0b' : '#ef4444' }}></div>
+                      <div className={`match-fill ${j.match_percentage >= 70 ? 'high' : j.match_percentage >= 40 ? 'medium' : 'low'}`} style={{ width: `${j.match_percentage}%` }}></div>
                     </div>
                     {j.reason && <p className="text-muted small mt-2 mb-0">{j.reason}</p>}
                   </div>

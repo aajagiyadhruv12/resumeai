@@ -846,6 +846,18 @@ h6 { font-size: 1rem; }
   justify-content: center;
 }
 
+.verdict-strong {
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success-dark);
+}
+
+.verdict-warning {
+  background: var(--warning-soft);
+  border-color: var(--warning);
+  color: var(--warning-dark);
+}
+
 /* ── Summary Card ── */
 .summary-card {
   background: var(--gradient-success);
@@ -2734,6 +2746,16 @@ footer p { font-size: 0.85rem; color: var(--text-muted) !important; }
 .analysis-mini-card:hover { background: var(--primary-soft); }
 .score-ring-card { display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .score-ring-card svg { filter: drop-shadow(0 4px 8px rgba(0,0,0,0.08)); }
+
+/* Dark mode SVG fixes */
+.score-ring-track { stroke: var(--border-color); }
+.score-ring-label { fill: var(--text-muted); }
+
+/* Match text colors (dark mode aware) */
+.match-text-high { color: var(--success); }
+.match-text-medium { color: var(--warning); }
+.match-text-low { color: var(--danger); }
+
 .section-sublabel { display: block; font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-bottom: 8px; }
 .history-card { background: var(--bg-card); border-radius: var(--radius-lg); padding: 20px; margin-bottom: 14px; border: 1px solid var(--border-color); transition: all var(--transition-base); cursor: pointer; }
 .history-card:hover { border-color: var(--primary); transform: translateX(6px); box-shadow: var(--shadow-md); }
