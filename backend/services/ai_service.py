@@ -64,7 +64,7 @@ class AIService:
         generation_config = {
             "temperature": 0.1,
             "top_p": 0.95,
-            "max_output_tokens": 4096,
+            "max_output_tokens": 8192,
         }
         if is_json:
             generation_config["response_mime_type"] = "application/json"
@@ -176,11 +176,87 @@ class AIService:
         start_time = time.time()
         logging.info(f"Starting analysis for role: {target_role}")
         
-        prompt = f"""Analyze resume for {target_role}. Return JSON with keys:
-overall_score, ats_score, professional_summary, final_verdict,
-skills_extraction (technical_skills, soft_skills), skill_gap_analysis, experience_evaluation,
-projects_evaluation, education_evaluation, structure_formatting, keyword_ats_optimization,
-strengths, weaknesses, actionable_improvements, job_role_matching, bullet_point_rewriting.
+        prompt = f"""You are an expert senior recruiter and ATS specialist. Analyze this resume for a {target_role} position. Return a comprehensive JSON analysis with ALL of the following keys:
+
+1. overall_score (0-100): Overall resume quality score
+2. ats_score (0-100): ATS compatibility score
+3. professional_summary: 2-3 sentence summary
+4. final_verdict: Strong Candidate, Good Fit, Needs Improvement, or Not Ready
+5. skills_extraction: {{technical_skills: [], soft_skills: []}}
+6. skill_gap_analysis: Array of missing skills for the target role
+7. experience_evaluation: {{career_level, years_of_experience, impact, weak_bullets: [], suggestions: []}}
+8. projects_evaluation: {{project_count, technical_depth, suggestions: []}}
+9. education_evaluation: Feedback on education section
+10. structure_formatting: Feedback on resume structure
+11. keyword_ats_optimization: {{missing_keywords: [], suggested_keywords: []}}
+12. strengths: Array of key strengths
+13. weaknesses: Array of key weaknesses
+14. actionable_improvements: Array of specific improvements
+15. job_role_matching: Array of {{role, match_percentage, reason}}
+16. bullet_point_rewriting: Array of {{old, new}}
+
+--- ADDITIONAL ADVANCED ANALYSIS ---
+17. recruiter_scorecard: {{
+  overall_recommendation: "Strong Hire / Hire / Consider / Pass",
+  hiring_difficulty: "Easy / Moderate / Hard",
+  interview_recommendation: "Screen / Phone / Onsite / Priority",
+  risk_indicators: ["job hopping", "employment gaps", "lack of progression", etc],
+  strengths_for_recruiter: ["clear career progression", "relevant experience", etc],
+  growth_potential: "High / Medium / Low"
+}}
+
+18. interview_readiness: {{
+  score: 0-100,
+  coding_challenge_likelihood: "High / Medium / Low",
+  technical_areas_strong: [],
+  technical_areas_weak: [],
+  behavioral_questions_likely: ["Tell me about a time...", etc]
+}}
+
+19. career_trajectory: {{
+  trend: "Improving / Stable / Declining",
+  analysis: "Analysis of career progression",
+  red_flags: [],
+  recommended_next_role: "Suggested next career move"
+}}
+
+20. competitive_analysis: {{
+  market_position: "How this candidate compares to peers",
+  unique_value_proposition: "What sets them apart",
+  differentiation_opportunities: []
+}}
+
+21. resume_brand_assessment: {{
+  consistent_message: true/false,
+  career_narrative: "The story the resume tells",
+  brand_gaps: []
+}}
+
+22. specificity_analysis: {{
+  score: 0-100,
+  vague_statements: [],
+  specific_alternatives: []
+}}
+
+23. quantified_achievements: {{
+  score: 0-100,
+  analysis: "Assessment of quantification",
+  issues: [],
+  examples_of_good_quantification: []
+}}
+
+24. action_verbs_analysis: {{
+  score: 0-100,
+  strong_verbs: [],
+  weak_verbs: [],
+  suggestions: []
+}}
+
+25. leadership_indicators: {{
+  score: 0-100,
+  detected: [],
+  missing: []
+}}
 
 RESUME:
 {resume_text}
@@ -385,7 +461,72 @@ Return JSON with:
                 "weaknesses": [],
                 "actionable_improvements": [],
                 "job_role_matching": [],
-                "bullet_point_rewriting": []
+                "bullet_point_rewriting": [],
+                # Advanced analysis defaults
+                "recruiter_scorecard": {
+                    "overall_recommendation": "Needs Review",
+                    "hiring_difficulty": "N/A",
+                    "interview_recommendation": "Screen",
+                    "risk_indicators": [],
+                    "strengths_for_recruiter": [],
+                    "growth_potential": "N/A"
+                },
+                "interview_readiness": {
+                    "score": 0,
+                    "coding_challenge_likelihood": "N/A",
+                    "technical_areas_strong": [],
+                    "technical_areas_weak": [],
+                    "behavioral_questions_likely": []
+                },
+                "career_trajectory": {
+                    "trend": "N/A",
+                    "analysis": "N/A",
+                    "red_flags": [],
+                    "recommended_next_role": "N/A"
+                },
+                "competitive_analysis": {
+                    "market_position": "N/A",
+                    "unique_value_proposition": "N/A",
+                    "differentiation_opportunities": []
+                },
+                "resume_brand_assessment": {
+                    "consistent_message": False,
+                    "career_narrative": "N/A",
+                    "brand_gaps": []
+                },
+                "specificity_analysis": {
+                    "score": 0,
+                    "vague_statements": [],
+                    "specific_alternatives": []
+                },
+                "quantified_achievements": {
+                    "score": 0,
+                    "analysis": "N/A",
+                    "issues": [],
+                    "examples_of_good_quantification": []
+                },
+                "action_verbs_analysis": {
+                    "score": 0,
+                    "strong_verbs": [],
+                    "weak_verbs": [],
+                    "suggestions": []
+                },
+                "leadership_indicators": {
+                    "score": 0,
+                    "detected": [],
+                    "missing": []
+                },
+                "contact_info_check": {"complete": False, "missing": [], "issues": []},
+                "resume_length_analysis": {"current_length": "N/A", "status": "N/A", "recommendations": []},
+                "section_organization": {"score": 0, "issues": [], "recommended_order": []},
+                "keyword_density_analysis": {"top_keywords": [], "overused_keywords": [], "missing_industry_terms": []},
+                "industry_keywords": {"score": 0, "detected": [], "missing": []},
+                "remote_readiness": {"score": 0, "indicators": [], "missing_remote_skills": []},
+                "communication_skills": {"score": 0, "indicators": [], "weaknesses": []},
+                "impact_and_results": {"score": 0, "strong_impact_statements": [], "weak_impact_statements": []},
+                "ats_formatting_check": {"score": 0, "issues": [], "recommendations": []},
+                "problem_solving_evidence": {"score": 0, "examples_found": [], "missing_patterns": []},
+                "enhanced_projects": {"project_improvements": [], "project_suggestions": []}
             }
             
             # Fill in missing keys recursively or at top level
