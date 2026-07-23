@@ -38,21 +38,30 @@ const Counter = ({ end, duration = 2, suffix = '' }) => {
 };
 
 /* ─── FAQ Data ─── */
+const faqCategories = ['All', 'General', 'Technical', 'Billing', 'Account'];
 const faqs = [
-  { q: 'How does the AI analyze my resume?', a: 'Our AI uses advanced language models (GPT-4o / Gemini) to analyze your resume against industry standards, target job roles, and ATS requirements. It evaluates over 20 dimensions including skills, experience, formatting, keywords, and impact.' },
-  { q: 'Is my resume data secure?', a: 'Absolutely. All resumes are encrypted in transit and at rest. We use Firebase Cloud Firestore with strict security rules. Your data is never shared with third parties and you can delete it anytime.' },
-  { q: 'What file formats are supported?', a: 'We support PDF, DOCX, and plain text files. Our multi-engine parser extracts text even from complex PDF layouts. For best results, use a text-based PDF (not scanned images).' },
-  { q: 'Can I customize my resume after AI analysis?', a: 'Yes! Our visual Resume Builder lets you edit every section, drag-reorder entries, choose from 4 professional templates, and get AI suggestions in real-time.' },
-  { q: 'How accurate is the ATS score?', a: 'Our ATS scoring simulates real applicant tracking systems used by Fortune 500 companies. It checks keyword density, formatting compatibility, section headers, and bullet point structure for maximum accuracy.' },
-  { q: 'Is there a free plan available?', a: 'Yes! Our Free plan includes 3 full resume analyses, basic ATS scoring, and the Resume Builder. Upgrade to Pro for unlimited analyses, interview prep, and cover letter generation.' },
+  { q: 'How does the AI analyze my resume?', a: 'Our AI uses advanced language models (GPT-4o / Gemini) to analyze your resume against industry standards, target job roles, and ATS requirements. It evaluates over 20 dimensions including skills, experience, formatting, keywords, and impact. The entire process takes just seconds.', category: 'General' },
+  { q: 'Is my resume data secure?', a: 'Absolutely. All resumes are encrypted in transit (TLS 1.3) and at rest (AES-256). We use Firebase Cloud Firestore with strict security rules and regular audits. Your data is never shared with third parties and you can delete it anytime with one click.', category: 'Technical' },
+  { q: 'What file formats are supported?', a: 'We support PDF, DOCX, and plain text files. Our multi-engine parser extracts text even from complex PDF layouts with 99% accuracy. For best results, use a text-based PDF (not scanned images).', category: 'Technical' },
+  { q: 'Can I customize my resume after AI analysis?', a: 'Yes! Our visual Resume Builder lets you edit every section, drag-reorder entries, choose from 4 professional templates, and get AI suggestions in real-time. You can also undo any change instantly.', category: 'General' },
+  { q: 'How accurate is the ATS score?', a: 'Our ATS scoring simulates real applicant tracking systems used by Fortune 500 companies including Workday, Taleo, and Greenhouse. It checks keyword density, formatting compatibility, section headers, and bullet point structure for maximum accuracy.', category: 'General' },
+  { q: 'Is there a free plan available?', a: 'Yes! Our Free plan includes 3 full resume analyses, basic ATS scoring, and the Resume Builder with 1 template. Upgrade to Pro for unlimited analyses, interview prep, and cover letter generation. No credit card required to start.', category: 'Billing' },
+  { q: 'Can I cancel my subscription anytime?', a: 'Yes, you can cancel anytime from your account settings. Your access continues until the end of the billing period. No cancellation fees, no hidden charges.', category: 'Billing' },
+  { q: 'How do I export my resume?', a: 'You can export your resume as PDF, DOCX, TXT, or JSON. The PDF preserves your exact formatting and template design. DOCX is perfect for further editing in Word or Google Docs.', category: 'Account' },
 ];
 
 /* ─── Testimonials ─── */
 const testimonials = [
-  { name: 'Sarah Chen', role: 'Software Engineer at Google', text: 'The AI analysis helped me identify exactly what keywords I was missing. My interview call rate tripled after implementing the suggestions. Absolutely invaluable.', avatar: 'SC', rating: 5 },
-  { name: 'James Rodriguez', role: 'Product Manager at Stripe', text: 'I was stuck in the resume black hole for months. This tool not only fixed my ATS score but the Resume Builder made my experience sound 10x more impressive.', avatar: 'JR', rating: 5 },
-  { name: 'Priya Patel', role: 'Data Scientist at Netflix', text: 'The job matching feature is incredible. I pasted a job description and it showed me exactly what skills to highlight. Landed my dream role in 3 weeks!', avatar: 'PP', rating: 5 },
-  { name: 'Michael Thompson', role: 'DevOps Engineer at AWS', text: 'From 55 to 92 ATS score in one revision. The bullet point rewriting alone is worth the price. This is the best resume tool I have ever used.', avatar: 'MT', rating: 5 },
+  { name: 'Sarah Chen', role: 'Software Engineer at Google', text: 'The AI analysis helped me identify exactly what keywords I was missing. My interview call rate tripled after implementing the suggestions. Absolutely invaluable.', initials: 'SC', rating: 5, color: 'linear-gradient(135deg, #6366f1, #8b5cf6)', result: '3x more interview calls', companyIcon: 'bi-google' },
+  { name: 'James Rodriguez', role: 'Product Manager at Stripe', text: 'I was stuck in the resume black hole for months. This tool not only fixed my ATS score but the Resume Builder made my experience sound 10x more impressive.', initials: 'JR', rating: 5, color: 'linear-gradient(135deg, #10b981, #059669)', result: 'ATS score: 55 → 94', companyIcon: 'bi-stripe' },
+  { name: 'Priya Patel', role: 'Data Scientist at Netflix', text: 'The job matching feature is incredible. I pasted a job description and it showed me exactly what skills to highlight. Landed my dream role in 3 weeks!', initials: 'PP', rating: 5, color: 'linear-gradient(135deg, #ef4444, #dc2626)', result: 'Landed role in 3 weeks', companyIcon: 'bi-play-btn' },
+  { name: 'Michael Thompson', role: 'DevOps Engineer at AWS', text: 'From 55 to 92 ATS score in one revision. The bullet point rewriting alone is worth the price. This is the best resume tool I have ever used.', initials: 'MT', rating: 5, color: 'linear-gradient(135deg, #f59e0b, #d97706)', result: '+37 ATS points gained', companyIcon: 'bi-cloud' },
+];
+
+/* ─── Company Logos (as icons) ─── */
+const companyLogos = [
+  'bi-google', 'bi-microsoft', 'bi-amazon', 'bi-apple', 'bi-meta',
+  'bi-linkedin', 'bi-github', 'bi-twitter-x', 'bi-slack', 'bi-zoom',
 ];
 
 /* ─── Fade In Section Wrapper ─── */
@@ -74,6 +83,43 @@ const Landing = ({ onGetStarted }) => {
   const { theme, toggleTheme } = useTheme();
   const [openFaq, setOpenFaq] = useState(null);
   const [mobileMenu, setMobileMenu] = useState(false);
+  const [billingCycle, setBillingCycle] = useState('monthly');
+  const [faqSearch, setFaqSearch] = useState('');
+  const [faqCategory, setFaqCategory] = useState('All');
+  const [testimonialIndex, setTestimonialIndex] = useState(0);
+  const [testimonialAuto, setTestimonialAuto] = useState(true);
+
+  // Auto-rotate testimonials
+  useEffect(() => {
+    if (!testimonialAuto) return;
+    const interval = setInterval(() => {
+      setTestimonialIndex(prev => (prev + 1) % testimonials.length);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [testimonialAuto]);
+
+  // Filter FAQs
+  const filteredFaqs = faqs.filter(faq => {
+    const matchesSearch = faq.q.toLowerCase().includes(faqSearch.toLowerCase()) ||
+                          faq.a.toLowerCase().includes(faqSearch.toLowerCase());
+    const matchesCategory = faqCategory === 'All' || faq.category === faqCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const prevTestimonial = () => {
+    setTestimonialAuto(false);
+    setTestimonialIndex(prev => (prev - 1 + testimonials.length) % testimonials.length);
+  };
+
+  const nextTestimonial = () => {
+    setTestimonialAuto(false);
+    setTestimonialIndex(prev => (prev + 1) % testimonials.length);
+  };
+
+  const goToTestimonial = (i) => {
+    setTestimonialAuto(false);
+    setTestimonialIndex(i);
+  };
 
   const scrollTo = (id) => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
@@ -92,9 +138,39 @@ const Landing = ({ onGetStarted }) => {
   ];
 
   const plans = [
-    { name: 'Free', price: '$0', period: 'forever', desc: 'Perfect for getting started', features: ['3 Resume Analyses', 'Basic ATS Scoring', 'Resume Builder Access', '1 Template'], cta: 'Get Started', popular: false },
-    { name: 'Pro', price: '$12', period: '/month', desc: 'For serious job seekers', features: ['Unlimited Analyses', 'Advanced ATS Scoring', 'All 4 Templates', 'Job Match Scoring', 'Cover Letter Generator', 'Interview Prep', 'Priority Support'], cta: 'Start Free Trial', popular: true },
-    { name: 'Enterprise', price: '$29', period: '/month', desc: 'For career growth & teams', features: ['Everything in Pro', 'Analytics Dashboard', 'Resume Comparison', 'Recruiter View', 'AI Chat Assistant', 'API Access', 'Team Collaboration'], cta: 'Contact Sales', popular: false },
+    {
+      name: 'Free',
+      monthly: '$0',
+      yearly: '$0',
+      period: 'forever',
+      desc: 'Perfect for getting started',
+      features: ['3 Resume Analyses', 'Basic ATS Scoring', 'Resume Builder Access', '1 Template'],
+      cta: 'Get Started',
+      popular: false,
+      gradient: 'from-gray-500'
+    },
+    {
+      name: 'Pro',
+      monthly: '$12',
+      yearly: '$8',
+      period: billingCycle === 'monthly' ? '/month' : '/month',
+      desc: 'For serious job seekers',
+      features: ['Unlimited Analyses', 'Advanced ATS Scoring', 'All 4 Templates', 'Job Match Scoring', 'Cover Letter Generator', 'Interview Prep', 'Priority Support'],
+      cta: 'Start Free Trial',
+      popular: true,
+      gradient: 'from-primary-500'
+    },
+    {
+      name: 'Enterprise',
+      monthly: '$29',
+      yearly: '$22',
+      period: '/month',
+      desc: 'For career growth & teams',
+      features: ['Everything in Pro', 'Analytics Dashboard', 'Resume Comparison', 'Recruiter View', 'AI Chat Assistant', 'API Access', 'Team Collaboration'],
+      cta: 'Contact Sales',
+      popular: false,
+      gradient: 'from-purple-500'
+    },
   ];
 
   return (
@@ -244,16 +320,47 @@ const Landing = ({ onGetStarted }) => {
             <p className="section-subtitle">Start free, upgrade when you need more power</p>
           </FadeInSection>
 
+          {/* Billing Toggle */}
+          <div className="pricing-toggle-wrapper">
+            <FadeInSection delay={0.1}>
+              <div className="pricing-toggle">
+                <span className={`toggle-label ${billingCycle === 'monthly' ? 'active' : ''}`}>Monthly</span>
+                <button
+                  className={`toggle-switch ${billingCycle === 'yearly' ? 'active' : ''}`}
+                  onClick={() => setBillingCycle(billingCycle === 'monthly' ? 'yearly' : 'monthly')}
+                  aria-label="Toggle billing cycle"
+                >
+                  <div className="toggle-thumb"></div>
+                </button>
+                <span className={`toggle-label ${billingCycle === 'yearly' ? 'active' : ''}`}>
+                  Yearly
+                  <span className="save-badge">Save 33%</span>
+                </span>
+              </div>
+            </FadeInSection>
+          </div>
+
           <div className="pricing-grid">
-            {plans.map((p, i) => (
+            {plans.map((p, i) => {
+              const displayPrice = p.name === 'Free' ? '$0' : (billingCycle === 'monthly' ? p.monthly : p.yearly);
+              return (
               <FadeInSection key={i} delay={i * 0.1}>
                 <div className={`pricing-card ${p.popular ? 'popular' : ''}`}>
                   {p.popular && <div className="popular-badge">Most Popular</div>}
+                  <div className="pricing-card-glow"></div>
                   <h3 className="pricing-name">{p.name}</h3>
                   <div className="pricing-price">
-                    <span className="price-amount">{p.price}</span>
-                    <span className="price-period">{p.period}</span>
+                    <span className="price-amount" key={displayPrice}>{displayPrice}</span>
+                    {p.name !== 'Free' && (
+                      <span className="price-period">{billingCycle === 'monthly' ? '/month' : `/month, billed yearly`}</span>
+                    )}
+                    {p.name === 'Free' && <span className="price-period" style={{ display: 'block', fontSize: '0.9rem', marginTop: 4 }}>{p.period}</span>}
                   </div>
+                  {billingCycle === 'yearly' && p.name !== 'Free' && (
+                    <div className="price-yearly-total">
+                      {p.name === 'Pro' ? '$96' : '$264'} billed annually
+                    </div>
+                  )}
                   <p className="pricing-desc">{p.desc}</p>
                   <ul className="pricing-features">
                     {p.features.map((f, j) => (
@@ -263,10 +370,50 @@ const Landing = ({ onGetStarted }) => {
                   <button className={`btn ${p.popular ? 'btn-primary' : 'btn-secondary'} w-100`} onClick={onGetStarted}>
                     {p.cta}
                   </button>
+                  {p.popular && (
+                    <div className="pricing-guarantee">
+                      <i className="bi bi-shield-check me-1"></i> 30-day money-back guarantee
+                    </div>
+                  )}
                 </div>
               </FadeInSection>
-            ))}
+              );
+            })}
           </div>
+
+          {/* Feature Comparison */}
+          <FadeInSection delay={0.3}>
+            <div className="pricing-compare">
+              <h3 className="compare-title">Compare Plans</h3>
+              <div className="compare-table">
+                <div className="compare-row compare-header">
+                  <div className="compare-feature">Feature</div>
+                  <div className="compare-plan">Free</div>
+                  <div className="compare-plan popular">Pro</div>
+                  <div className="compare-plan">Enterprise</div>
+                </div>
+                {[
+                  ['Resume Analyses', '3', 'Unlimited', 'Unlimited'],
+                  ['ATS Scoring', 'Basic', 'Advanced', 'Advanced + API'],
+                  ['Templates', '1', '4', '4 + Custom'],
+                  ['Job Match Scoring', '—', '✓', '✓'],
+                  ['Cover Letter Generator', '—', '✓', '✓'],
+                  ['Interview Prep', '—', '✓', '✓'],
+                  ['Analytics Dashboard', '—', '—', '✓'],
+                  ['Resume Comparison', '—', '—', '✓'],
+                  ['AI Chat Assistant', '—', '—', '✓'],
+                  ['Priority Support', '—', '✓', '✓'],
+                ].map((row, i) => (
+                  <div key={i} className={`compare-row ${i % 2 === 0 ? 'even' : 'odd'}`}>
+                    <div className="compare-feature">{row[0]}</div>
+                    <div className="compare-plan"><span className={`check-icon ${row[1] === '—' || row[1] === 'Basic' || row[1] === '1' || row[1] === '3' ? 'check-basic' : 'check-pro'}`}>{row[1]}</span></div>
+                    <div className="compare-plan popular"><span className={`check-icon ${row[2] === '—' ? '' : 'check-pro'}`}>{row[2]}</span></div>
+                    <div className="compare-plan"><span className={`check-icon ${row[3] === '—' ? '' : 'check-pro'}`}>{row[3]}</span></div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </FadeInSection>
         </div>
       </section>
 
@@ -276,28 +423,120 @@ const Landing = ({ onGetStarted }) => {
           <FadeInSection>
             <div className="section-label" style={{ color: 'var(--info)' }}>Testimonials</div>
             <h2 className="section-title">Loved by <span className="text-info">Job Seekers</span></h2>
-            <p className="section-subtitle">Join thousands who landed their dream roles</p>
+            <p className="section-subtitle">Join thousands who landed their dream roles at top companies</p>
           </FadeInSection>
 
-          <div className="testimonials-grid">
-            {testimonials.map((t, i) => (
-              <FadeInSection key={i} delay={i * 0.1}>
-                <div className="testimonial-card">
-                  <div className="testimonial-stars">
-                    {[...Array(t.rating)].map((_, j) => <i key={j} className="bi bi-star-fill text-warning"></i>)}
+          {/* Company Logo Strip */}
+          <FadeInSection delay={0.1}>
+            <div className="trust-bar">
+              <span className="trust-label">Trusted by job seekers from</span>
+              <div className="trust-logos">
+                {companyLogos.map((logo, i) => (
+                  <div key={i} className="trust-logo" title={logo.replace('bi-', '').charAt(0).toUpperCase() + logo.replace('bi-', '').slice(1)}>
+                    <i className={`bi ${logo}`}></i>
                   </div>
-                  <p className="testimonial-text">"{t.text}"</p>
-                  <div className="testimonial-author">
-                    <div className="testimonial-avatar">{t.avatar}</div>
-                    <div>
-                      <div className="testimonial-name">{t.name}</div>
-                      <div className="testimonial-role">{t.role}</div>
+                ))}
+              </div>
+            </div>
+          </FadeInSection>
+
+          {/* Testimonial Carousel */}
+          <FadeInSection delay={0.2}>
+            <div className="testimonial-carousel">
+              <button className="carousel-arrow carousel-prev" onClick={prevTestimonial} aria-label="Previous testimonial">
+                <i className="bi bi-chevron-left"></i>
+              </button>
+
+              <div className="carousel-track">
+                {testimonials.map((t, i) => (
+                  <motion.div
+                    key={i}
+                    className={`testimonial-card ${i === testimonialIndex ? 'active' : ''}`}
+                    initial={{ opacity: 0, scale: 0.9, x: i === testimonialIndex ? 50 : 0 }}
+                    animate={{
+                      opacity: i === testimonialIndex ? 1 : 0,
+                      scale: i === testimonialIndex ? 1 : 0.9,
+                      x: i === testimonialIndex ? 0 : (i < testimonialIndex ? -50 : 50),
+                    }}
+                    transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
+                  >
+                    <div className="testimonial-card-inner">
+                      <div className="testimonial-top">
+                        <div className="testimonial-avatar" style={{ background: t.color }}>
+                          {t.initials}
+                          <div className="verified-badge">
+                            <i className="bi bi-patch-check-fill"></i>
+                          </div>
+                        </div>
+                        <div className="testimonial-meta">
+                          <div className="testimonial-name">{t.name}</div>
+                          <div className="testimonial-role">{t.role}</div>
+                        </div>
+                        <div className="testimonial-stars">
+                          {[...Array(t.rating)].map((_, j) => (
+                            <motion.i
+                              key={j}
+                              className="bi bi-star-fill"
+                              initial={{ opacity: 0, scale: 0 }}
+                              animate={i === testimonialIndex ? { opacity: 1, scale: 1 } : {}}
+                              transition={{ delay: 0.3 + j * 0.1, type: 'spring', stiffness: 300 }}
+                            ></motion.i>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="testimonial-quote-wrap">
+                        <i className="bi bi-quote testimonial-quote-icon"></i>
+                        <p className="testimonial-text">"{t.text}"</p>
+                      </div>
+                      <div className="testimonial-result">
+                        <div className="result-badge">
+                          <i className="bi bi-graph-up-arrow me-1"></i>
+                          {t.result}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                </div>
-              </FadeInSection>
-            ))}
-          </div>
+                  </motion.div>
+                ))}
+              </div>
+
+              <button className="carousel-arrow carousel-next" onClick={nextTestimonial} aria-label="Next testimonial">
+                <i className="bi bi-chevron-right"></i>
+              </button>
+
+              <div className="carousel-dots">
+                {testimonials.map((_, i) => (
+                  <button
+                    key={i}
+                    className={`carousel-dot ${i === testimonialIndex ? 'active' : ''}`}
+                    onClick={() => goToTestimonial(i)}
+                    aria-label={`Go to testimonial ${i + 1}`}
+                  />
+                ))}
+              </div>
+            </div>
+          </FadeInSection>
+
+          {/* Stats Row */}
+          <FadeInSection delay={0.3}>
+            <div className="testimonial-stats">
+              <div className="testi-stat">
+                <span className="testi-stat-value">50,000+</span>
+                <span className="testi-stat-label">Resumes Analyzed</span>
+              </div>
+              <div className="testi-stat">
+                <span className="testi-stat-value">92%</span>
+                <span className="testi-stat-label">Avg. ATS Score</span>
+              </div>
+              <div className="testi-stat">
+                <span className="testi-stat-value">3x</span>
+                <span className="testi-stat-label">More Interviews</span>
+              </div>
+              <div className="testi-stat">
+                <span className="testi-stat-value">4.9★</span>
+                <span className="testi-stat-label">User Rating</span>
+              </div>
+            </div>
+          </FadeInSection>
         </div>
       </section>
 
@@ -307,33 +546,111 @@ const Landing = ({ onGetStarted }) => {
           <FadeInSection>
             <div className="section-label" style={{ color: 'var(--accent)' }}>FAQ</div>
             <h2 className="section-title">Frequently Asked <span className="text-danger">Questions</span></h2>
+            <p className="section-subtitle">Everything you need to know about our platform</p>
           </FadeInSection>
 
-          <div className="faq-list">
-            {faqs.map((faq, i) => (
-              <FadeInSection key={i} delay={i * 0.05}>
-                <div className={`faq-item ${openFaq === i ? 'open' : ''}`}>
-                  <button className="faq-question" onClick={() => setOpenFaq(openFaq === i ? null : i)}>
-                    <span>{faq.q}</span>
-                    <i className={`bi ${openFaq === i ? 'bi-chevron-up' : 'bi-chevron-down'}`}></i>
+          {/* Search & Filter */}
+          <FadeInSection delay={0.1}>
+            <div className="faq-toolbar">
+              <div className="faq-search-wrap">
+                <i className="bi bi-search faq-search-icon"></i>
+                <input
+                  type="text"
+                  className="faq-search-input"
+                  placeholder="Search questions..."
+                  value={faqSearch}
+                  onChange={(e) => setFaqSearch(e.target.value)}
+                />
+                {faqSearch && (
+                  <button className="faq-search-clear" onClick={() => setFaqSearch('')}>
+                    <i className="bi bi-x-lg"></i>
                   </button>
-                  <AnimatePresence>
-                    {openFaq === i && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: 'auto', opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="faq-answer-wrapper"
-                      >
-                        <p className="faq-answer">{faq.a}</p>
-                      </motion.div>
+                )}
+              </div>
+              <div className="faq-categories">
+                {faqCategories.map((cat) => (
+                  <button
+                    key={cat}
+                    className={`faq-cat-btn ${faqCategory === cat ? 'active' : ''}`}
+                    onClick={() => setFaqCategory(cat)}
+                  >
+                    {cat}
+                    {cat !== 'All' && (
+                      <span className="faq-cat-count">{faqs.filter(f => f.category === cat).length}</span>
                     )}
-                  </AnimatePresence>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </FadeInSection>
+
+          {/* FAQ Items */}
+          <div className="faq-list">
+            {filteredFaqs.length === 0 ? (
+              <FadeInSection>
+                <div className="faq-empty">
+                  <i className="bi bi-search-heart"></i>
+                  <h4>No questions found</h4>
+                  <p>Try a different search term or category</p>
+                  <button className="btn btn-sm btn-primary" onClick={() => { setFaqSearch(''); setFaqCategory('All'); }}>
+                    Reset Filters
+                  </button>
                 </div>
               </FadeInSection>
-            ))}
+            ) : (
+              filteredFaqs.map((faq, i) => {
+                const faqIndex = faqs.indexOf(faq);
+                return (
+                <FadeInSection key={faqIndex} delay={i * 0.04}>
+                  <div className={`faq-item ${openFaq === faqIndex ? 'open' : ''}`}>
+                    <button className="faq-question" onClick={() => setOpenFaq(openFaq === faqIndex ? null : faqIndex)}>
+                      <span className="faq-question-text">
+                        <i className="bi bi-question-circle me-2" style={{ color: 'var(--primary)', fontSize: '0.9rem' }}></i>
+                        {faq.q}
+                      </span>
+                      <i className={`bi ${openFaq === faqIndex ? 'bi-chevron-up' : 'bi-chevron-down'}`}></i>
+                    </button>
+                    <AnimatePresence>
+                      {openFaq === faqIndex && (
+                        <motion.div
+                          initial={{ height: 0, opacity: 0 }}
+                          animate={{ height: 'auto', opacity: 1 }}
+                          exit={{ height: 0, opacity: 0 }}
+                          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+                          className="faq-answer-wrapper"
+                        >
+                          <p className="faq-answer">{faq.a}</p>
+                          <div className="faq-answer-footer">
+                            <span className="faq-category-tag">{faq.category}</span>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </FadeInSection>
+                );
+              })
+            )}
           </div>
+
+          {/* Still Have Questions */}
+          <FadeInSection delay={0.2}>
+            <div className="faq-cta">
+              <div className="faq-cta-icon">
+                <i className="bi bi-chat-dots"></i>
+              </div>
+              <h4>Still have questions?</h4>
+              <p>Our support team is here to help you 24/7</p>
+              <div className="faq-cta-actions">
+                <button className="btn btn-primary" onClick={onGetStarted}>
+                  <i className="bi bi-envelope me-2"></i>Contact Support
+                </button>
+                <button className="btn btn-secondary">
+                  <i className="bi bi-book me-2"></i>View Docs
+                </button>
+              </div>
+            </div>
+          </FadeInSection>
         </div>
       </section>
 
@@ -361,6 +678,14 @@ const Landing = ({ onGetStarted }) => {
                 <span>Resume<span className="text-primary">AI</span></span>
               </div>
               <p>The most advanced AI-powered resume optimization platform. Land more interviews with data-driven insights.</p>
+              <div className="footer-rating">
+                <i className="bi bi-star-fill text-warning"></i>
+                <i className="bi bi-star-fill text-warning"></i>
+                <i className="bi bi-star-fill text-warning"></i>
+                <i className="bi bi-star-fill text-warning"></i>
+                <i className="bi bi-star-fill text-warning"></i>
+                <span>4.9 (2,500+ reviews)</span>
+              </div>
             </div>
             {[
               { title: 'Product', links: ['Features', 'Pricing', 'Templates', 'API'] },

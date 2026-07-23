@@ -201,10 +201,12 @@ const AISuggestionModal = ({ show, onClose, suggestion, loading, onApply, sectio
             <p className="text-muted text-center py-3">No suggestion available.</p>
           )}
         </div>
-        {suggestion && suggestion.improved_version && !loading && (
+        {/* Only show Apply button for section types where auto-apply works */}
+        {((suggestion?.improved_version && ['summary', 'experience_bullet'].includes(sectionType)) || 
+           (suggestion?.recommended_skills?.length > 0 && sectionType === 'skills')) && !loading && (
           <div className="rb-modal-footer">
             <button className="btn btn-outline-secondary btn-sm" onClick={onClose}>Cancel</button>
-            <button className="btn btn-primary btn-sm" onClick={() => onApply(suggestion.improved_version)}>
+            <button className="btn btn-primary btn-sm" onClick={() => onApply(suggestion.improved_version || '', suggestion)}>
               <i className="bi bi-check-lg me-1"></i> Apply
             </button>
           </div>
@@ -979,8 +981,8 @@ const ResumeBuilder = ({ initialResumeText, targetRole = 'Software Engineer', on
     try {
       const result = await apiService.getSuggestion(sectionType, currentText, targetRole, context);
       setAiModal(prev => ({ ...prev, suggestion: result, loading: false,
-        onApply: (improved) => {
-          applySuggestion(sectionType, improved);
+        onApply: (improved, fullSuggestion) => {
+          applySuggestion(sectionType, improved, fullSuggestion || result);
           setAiModal(prev => ({ ...prev, show: false }));
         }
       }));
@@ -990,9 +992,29 @@ const ResumeBuilder = ({ initialResumeText, targetRole = 'Software Engineer', on
     }
   };
 
-  const applySuggestion = (sectionType, text) => {
-    if (sectionType === 'summary') {
+  const applySuggestion = (sectionType, text, suggestion) => {
+    if (sectionType === 'summary' && text) {
       setResume(prev => ({ ...prev, summary: text }));
+    } else if (sectionType === 'skills' && suggestion?.recommended_skills?.length > 0) {
+      setResume(prev => {
+        const existing = new Set(prev.skills.technical);
+        const newSkills = suggestion.recommended_skills.filter(s => !existing.has(s));
+        return { ...prev, skills: { ...prev.skills, technical: [...prev.skills.technical, ...newSkills] } };
+      });
+    } else if (sectionType === 'experience_bullet' && text) {
+      // Apply improved bullet to first experience's last empty bullet
+      setResume(prev => {
+        if (prev.experience.length === 0) return prev;
+        const exp = { ...prev.experience[0] };
+        exp.bullets = [...exp.bullets];
+        const emptyIdx = exp.bullets.findIndex(b => !b.trim());
+        if (emptyIdx >= 0) exp.bullets[emptyIdx] = text;
+        else exp.bullets.push(text);
+        return { ...prev, experience: [exp, ...prev.experience.slice(1)] };
+      });
+    } else if ((sectionType === 'experience' || sectionType === 'project' || sectionType === 'education') && text) {
+      // These sections just show the suggestion for manual reference
+      // Full auto-apply would require knowing which item index to target
     }
   };
 
