@@ -330,12 +330,26 @@ STRICT RULES:
 - Return ONLY the resume text, no markdown, no explanation
 """
         try:
-            text = self._call_gemini(prompt)
+            # CRITICAL FIX: Call with is_json=False because this prompt asks for plain text, not JSON.
+            # When is_json=True (default), Gemini sets response_mime_type to "application/json"
+            # which causes the model to fail on non-JSON prompts.
+            text = self._call_gemini(prompt, is_json=False)
             if text.startswith("```"):
                 text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
             return {"generated_resume": text}
         except Exception as e:
             logging.error(f"Generation failed: {e}")
+            # Try a simpler prompt as last resort before giving up
+            try:
+                fallback_prompt = f"""Rewrite this resume for a {target_role} position. Make it professional and ATS-friendly. Return ONLY the rewritten resume, no explanations.
+
+RESUME:
+{resume_text[:3000]}"""
+                text = self._call_gemini(fallback_prompt, is_json=False)
+                if text and len(text) > 50:
+                    return {"generated_resume": text}
+            except:
+                pass
             return {"error": "Generation failed", "details": str(e)}
 
     def suggest_improvement(self, section_type, current_text, target_role, resume_context=""):
