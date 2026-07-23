@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useTheme } from '../contexts/ThemeContext';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 /* ─── Animated Counter ─── */
 const Counter = ({ end, duration = 2, suffix = '' }) => {
@@ -37,19 +37,6 @@ const Counter = ({ end, duration = 2, suffix = '' }) => {
   return <span ref={ref}>{count}{suffix}</span>;
 };
 
-/* ─── FAQ Data ─── */
-const faqCategories = ['All', 'General', 'Technical', 'Billing', 'Account'];
-const faqs = [
-  { q: 'How does the AI analyze my resume?', a: 'Our AI uses advanced language models (GPT-4o / Gemini) to analyze your resume against industry standards, target job roles, and ATS requirements. It evaluates over 20 dimensions including skills, experience, formatting, keywords, and impact. The entire process takes just seconds.', category: 'General' },
-  { q: 'Is my resume data secure?', a: 'Absolutely. All resumes are encrypted in transit (TLS 1.3) and at rest (AES-256). We use Firebase Cloud Firestore with strict security rules and regular audits. Your data is never shared with third parties and you can delete it anytime with one click.', category: 'Technical' },
-  { q: 'What file formats are supported?', a: 'We support PDF, DOCX, and plain text files. Our multi-engine parser extracts text even from complex PDF layouts with 99% accuracy. For best results, use a text-based PDF (not scanned images).', category: 'Technical' },
-  { q: 'Can I customize my resume after AI analysis?', a: 'Yes! Our visual Resume Builder lets you edit every section, drag-reorder entries, choose from 4 professional templates, and get AI suggestions in real-time. You can also undo any change instantly.', category: 'General' },
-  { q: 'How accurate is the ATS score?', a: 'Our ATS scoring simulates real applicant tracking systems used by Fortune 500 companies including Workday, Taleo, and Greenhouse. It checks keyword density, formatting compatibility, section headers, and bullet point structure for maximum accuracy.', category: 'General' },
-  { q: 'Is there a free plan available?', a: 'Yes! Our Free plan includes 3 full resume analyses, basic ATS scoring, and the Resume Builder with 1 template. Upgrade to Pro for unlimited analyses, interview prep, and cover letter generation. No credit card required to start.', category: 'Billing' },
-  { q: 'Can I cancel my subscription anytime?', a: 'Yes, you can cancel anytime from your account settings. Your access continues until the end of the billing period. No cancellation fees, no hidden charges.', category: 'Billing' },
-  { q: 'How do I export my resume?', a: 'You can export your resume as PDF, DOCX, TXT, or JSON. The PDF preserves your exact formatting and template design. DOCX is perfect for further editing in Word or Google Docs.', category: 'Account' },
-];
-
 /* ─── Testimonials ─── */
 const testimonials = [
   { name: 'Sarah Chen', role: 'Software Engineer at Google', text: 'The AI analysis helped me identify exactly what keywords I was missing. My interview call rate tripled after implementing the suggestions. Absolutely invaluable.', initials: 'SC', rating: 5, color: 'linear-gradient(135deg, #6366f1, #8b5cf6)', result: '3x more interview calls', companyIcon: 'bi-google' },
@@ -81,10 +68,7 @@ const FadeInSection = ({ children, delay = 0 }) => (
    ════════════════════════════════════════════════ */
 const Landing = ({ onGetStarted }) => {
   const { theme, toggleTheme } = useTheme();
-  const [openFaq, setOpenFaq] = useState(null);
   const [mobileMenu, setMobileMenu] = useState(false);
-  const [faqSearch, setFaqSearch] = useState('');
-  const [faqCategory, setFaqCategory] = useState('All');
   const [testimonialIndex, setTestimonialIndex] = useState(0);
   const [testimonialAuto, setTestimonialAuto] = useState(true);
 
@@ -96,14 +80,6 @@ const Landing = ({ onGetStarted }) => {
     }, 5000);
     return () => clearInterval(interval);
   }, [testimonialAuto]);
-
-  // Filter FAQs
-  const filteredFaqs = faqs.filter(faq => {
-    const matchesSearch = faq.q.toLowerCase().includes(faqSearch.toLowerCase()) ||
-                          faq.a.toLowerCase().includes(faqSearch.toLowerCase());
-    const matchesCategory = faqCategory === 'All' || faq.category === faqCategory;
-    return matchesSearch && matchesCategory;
-  });
 
   const prevTestimonial = () => {
     setTestimonialAuto(false);
@@ -393,120 +369,6 @@ const Landing = ({ onGetStarted }) => {
               <div className="testi-stat">
                 <span className="testi-stat-value">4.9★</span>
                 <span className="testi-stat-label">User Rating</span>
-              </div>
-            </div>
-          </FadeInSection>
-        </div>
-      </section>
-
-      {/* ── FAQ ── */}
-      <section className="landing-faq" id="faq">
-        <div className="landing-container">
-          <FadeInSection>
-            <div className="section-label" style={{ color: 'var(--accent)' }}>FAQ</div>
-            <h2 className="section-title">Frequently Asked <span className="text-danger">Questions</span></h2>
-            <p className="section-subtitle">Everything you need to know about our platform</p>
-          </FadeInSection>
-
-          {/* Search & Filter */}
-          <FadeInSection delay={0.1}>
-            <div className="faq-toolbar">
-              <div className="faq-search-wrap">
-                <i className="bi bi-search faq-search-icon"></i>
-                <input
-                  type="text"
-                  className="faq-search-input"
-                  placeholder="Search questions..."
-                  value={faqSearch}
-                  onChange={(e) => setFaqSearch(e.target.value)}
-                />
-                {faqSearch && (
-                  <button className="faq-search-clear" onClick={() => setFaqSearch('')}>
-                    <i className="bi bi-x-lg"></i>
-                  </button>
-                )}
-              </div>
-              <div className="faq-categories">
-                {faqCategories.map((cat) => (
-                  <button
-                    key={cat}
-                    className={`faq-cat-btn ${faqCategory === cat ? 'active' : ''}`}
-                    onClick={() => setFaqCategory(cat)}
-                  >
-                    {cat}
-                    {cat !== 'All' && (
-                      <span className="faq-cat-count">{faqs.filter(f => f.category === cat).length}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-            </div>
-          </FadeInSection>
-
-          {/* FAQ Items */}
-          <div className="faq-list">
-            {filteredFaqs.length === 0 ? (
-              <FadeInSection>
-                <div className="faq-empty">
-                  <i className="bi bi-search-heart"></i>
-                  <h4>No questions found</h4>
-                  <p>Try a different search term or category</p>
-                  <button className="btn btn-sm btn-primary" onClick={() => { setFaqSearch(''); setFaqCategory('All'); }}>
-                    Reset Filters
-                  </button>
-                </div>
-              </FadeInSection>
-            ) : (
-              filteredFaqs.map((faq, i) => {
-                const faqIndex = faqs.indexOf(faq);
-                return (
-                <FadeInSection key={faqIndex} delay={i * 0.04}>
-                  <div className={`faq-item ${openFaq === faqIndex ? 'open' : ''}`}>
-                    <button className="faq-question" onClick={() => setOpenFaq(openFaq === faqIndex ? null : faqIndex)}>
-                      <span className="faq-question-text">
-                        <i className="bi bi-question-circle me-2" style={{ color: 'var(--primary)', fontSize: '0.9rem' }}></i>
-                        {faq.q}
-                      </span>
-                      <i className={`bi ${openFaq === faqIndex ? 'bi-chevron-up' : 'bi-chevron-down'}`}></i>
-                    </button>
-                    <AnimatePresence>
-                      {openFaq === faqIndex && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: 'auto', opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                          className="faq-answer-wrapper"
-                        >
-                          <p className="faq-answer">{faq.a}</p>
-                          <div className="faq-answer-footer">
-                            <span className="faq-category-tag">{faq.category}</span>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
-                  </div>
-                </FadeInSection>
-                );
-              })
-            )}
-          </div>
-
-          {/* Still Have Questions */}
-          <FadeInSection delay={0.2}>
-            <div className="faq-cta">
-              <div className="faq-cta-icon">
-                <i className="bi bi-chat-dots"></i>
-              </div>
-              <h4>Still have questions?</h4>
-              <p>Our support team is here to help you 24/7</p>
-              <div className="faq-cta-actions">
-                <button className="btn btn-primary" onClick={onGetStarted}>
-                  <i className="bi bi-envelope me-2"></i>Contact Support
-                </button>
-                <button className="btn btn-secondary">
-                  <i className="bi bi-book me-2"></i>View Docs
-                </button>
               </div>
             </div>
           </FadeInSection>
