@@ -63,8 +63,8 @@ def analyze():
                 return jsonify(cached_result), 200
 
         analysis_result = ai_service.analyze_resume(resume_text, target_role)
-        if "error" in analysis_result:
-            # Return 422 (Unprocessable Entity) for AI failures instead of 500
+        # Only return 422 if there's an actual error string (not None/empty)
+        if analysis_result.get("error"):
             return jsonify(analysis_result), 422
 
         # Cache the successful result

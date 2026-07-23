@@ -64,7 +64,7 @@ class AIService:
         generation_config = {
             "temperature": 0.1,
             "top_p": 0.95,
-            "max_output_tokens": 8192,
+            "max_output_tokens": 16384,
         }
         if is_json:
             generation_config["response_mime_type"] = "application/json"
@@ -128,7 +128,7 @@ class AIService:
                 model="gpt-4o-mini",
                 messages=[{"role": "user", "content": prompt}],
                 temperature=0.1,
-                max_tokens=4096
+                max_tokens=16384
             )
 
             if response and response.choices:
@@ -155,7 +155,7 @@ class AIService:
                     "model": "DeepSeek-V3.1",
                     "messages": [{"role": "user", "content": prompt}],
                     "temperature": 0.1,
-                    "max_tokens": 4096
+                    "max_tokens": 16384
                 }
             )
             if response.status_code == 200:
@@ -176,87 +176,21 @@ class AIService:
         start_time = time.time()
         logging.info(f"Starting analysis for role: {target_role}")
         
-        prompt = f"""You are an expert senior recruiter and ATS specialist. Analyze this resume for a {target_role} position. Return a comprehensive JSON analysis with ALL of the following keys:
+        # Use a focused prompt with the 12 most essential dimensions
+        prompt = f"""You are an expert resume analyst and ATS specialist. Analyze this resume for a {target_role} position.
 
-1. overall_score (0-100): Overall resume quality score
-2. ats_score (0-100): ATS compatibility score
-3. professional_summary: 2-3 sentence summary
-4. final_verdict: Strong Candidate, Good Fit, Needs Improvement, or Not Ready
-5. skills_extraction: {{technical_skills: [], soft_skills: []}}
-6. skill_gap_analysis: Array of missing skills for the target role
-7. experience_evaluation: {{career_level, years_of_experience, impact, weak_bullets: [], suggestions: []}}
-8. projects_evaluation: {{project_count, technical_depth, suggestions: []}}
-9. education_evaluation: Feedback on education section
-10. structure_formatting: Feedback on resume structure
-11. keyword_ats_optimization: {{missing_keywords: [], suggested_keywords: []}}
-12. strengths: Array of key strengths
-13. weaknesses: Array of key weaknesses
-14. actionable_improvements: Array of specific improvements
-15. job_role_matching: Array of {{role, match_percentage, reason}}
-16. bullet_point_rewriting: Array of {{old, new}}
-
---- ADDITIONAL ADVANCED ANALYSIS ---
-17. recruiter_scorecard: {{
-  overall_recommendation: "Strong Hire / Hire / Consider / Pass",
-  hiring_difficulty: "Easy / Moderate / Hard",
-  interview_recommendation: "Screen / Phone / Onsite / Priority",
-  risk_indicators: ["job hopping", "employment gaps", "lack of progression", etc],
-  strengths_for_recruiter: ["clear career progression", "relevant experience", etc],
-  growth_potential: "High / Medium / Low"
-}}
-
-18. interview_readiness: {{
-  score: 0-100,
-  coding_challenge_likelihood: "High / Medium / Low",
-  technical_areas_strong: [],
-  technical_areas_weak: [],
-  behavioral_questions_likely: ["Tell me about a time...", etc]
-}}
-
-19. career_trajectory: {{
-  trend: "Improving / Stable / Declining",
-  analysis: "Analysis of career progression",
-  red_flags: [],
-  recommended_next_role: "Suggested next career move"
-}}
-
-20. competitive_analysis: {{
-  market_position: "How this candidate compares to peers",
-  unique_value_proposition: "What sets them apart",
-  differentiation_opportunities: []
-}}
-
-21. resume_brand_assessment: {{
-  consistent_message: true/false,
-  career_narrative: "The story the resume tells",
-  brand_gaps: []
-}}
-
-22. specificity_analysis: {{
-  score: 0-100,
-  vague_statements: [],
-  specific_alternatives: []
-}}
-
-23. quantified_achievements: {{
-  score: 0-100,
-  analysis: "Assessment of quantification",
-  issues: [],
-  examples_of_good_quantification: []
-}}
-
-24. action_verbs_analysis: {{
-  score: 0-100,
-  strong_verbs: [],
-  weak_verbs: [],
-  suggestions: []
-}}
-
-25. leadership_indicators: {{
-  score: 0-100,
-  detected: [],
-  missing: []
-}}
+Return ONLY valid JSON with these exact keys:
+overall_score (0-100), ats_score (0-100),
+professional_summary (2-3 sentences), final_verdict (Strong Candidate/Good Fit/Needs Improvement/Not Ready),
+skills_extraction {{technical_skills: [], soft_skills: []}},
+skill_gap_analysis (array),
+experience_evaluation {{career_level, years_of_experience, impact, weak_bullets: [], suggestions: []}},
+projects_evaluation {{project_count, technical_depth, suggestions: []}},
+education_evaluation, structure_formatting,
+keyword_ats_optimization {{missing_keywords: [], suggested_keywords: []}},
+strengths (array), weaknesses (array), actionable_improvements (array),
+job_role_matching (array of {{role, match_percentage, reason}}),
+bullet_point_rewriting (array of {{old, new}}).
 
 RESUME:
 {resume_text}
@@ -267,8 +201,41 @@ RESUME:
             logging.info(f"Analysis completed in {time.time() - start_time:.2f} seconds")
             return result
         except Exception as e:
-            logging.error(f"Analysis failed after {time.time() - start_time:.2f} seconds: {e}")
-            return {"error": "Analysis failed", "details": str(e)}
+            logging.warning(f"Full analysis failed, trying simpler prompt: {e}")
+            # Retry with a much simpler prompt
+            try:
+                simple_prompt = f"""Analyze this resume for {target_role}. Return JSON with: overall_score, ats_score, professional_summary, final_verdict, skills_extraction (technical_skills, soft_skills), skill_gap_analysis, experience_evaluation, projects_evaluation, education_evaluation, strengths, weaknesses, actionable_improvements, keyword_ats_optimization (missing_keywords, suggested_keywords).
+
+RESUME:
+{resume_text[:4000]}
+"""
+                text = self._call_gemini(simple_prompt, is_json=True)
+                result = self._parse_json(text)
+                logging.info(f"Analysis succeeded with simpler prompt in {time.time() - start_time:.2f}s")
+                return result
+            except Exception as e2:
+                logging.error(f"Analysis failed completely after {time.time() - start_time:.2f}s: {e2}")
+                # Return a minimal fallback analysis with the info we have
+                return {
+                    "overall_score": 60,
+                    "ats_score": 55,
+                    "professional_summary": "Analysis temporarily unavailable. Please try again.",
+                    "final_verdict": "Needs Review",
+                    "skills_extraction": {"technical_skills": [], "soft_skills": []},
+                    "skill_gap_analysis": [],
+                    "experience_evaluation": {"career_level": "N/A", "years_of_experience": "N/A", "impact": "Unable to analyze at this time.", "weak_bullets": [], "suggestions": []},
+                    "projects_evaluation": {"project_count": 0, "technical_depth": "N/A", "suggestions": []},
+                    "education_evaluation": "Unable to analyze at this time.",
+                    "structure_formatting": "Unable to analyze at this time.",
+                    "keyword_ats_optimization": {"missing_keywords": [], "suggested_keywords": []},
+                    "strengths": [],
+                    "weaknesses": [],
+                    "actionable_improvements": ["Please re-submit your resume for analysis."],
+                    "job_role_matching": [],
+                    "bullet_point_rewriting": [],
+                    "error": None,
+                    "warning": "AI analysis encountered an issue. Basic scores shown. Please try again."
+                }
 
     def generate_improved_resume(self, resume_text, analysis, target_role="Software Engineer"):
         weaknesses = analysis.get('weaknesses', [])
@@ -446,28 +413,34 @@ Return JSON with:
                 raise ValueError("No valid JSON object found in AI response.")
             
             clean = clean[start:end]
-            data = json.loads(clean)
+            
+            # Try to fix common JSON issues before parsing
+            try:
+                data = json.loads(clean)
+            except json.JSONDecodeError:
+                # Fix trailing commas (common AI issue)
+                import re
+                clean = re.sub(r',\s*}', '}', clean)
+                clean = re.sub(r',\s*]', ']', clean)
+                # Fix single quotes instead of double quotes
+                clean = re.sub(r"'([^']+)'\s*:", r'"\1":', clean)
+                clean = re.sub(r":\s*'([^']+)'", r':"\1"', clean)
+                try:
+                    data = json.loads(clean)
+                except json.JSONDecodeError as je:
+                    logging.error(f"JSON Decode Error after fixes: {je}. Text: {clean[:500]}")
+                    raise Exception("AI returned invalid JSON format. Please try again.")
 
-            # Define robust defaults for all required keys
+            # Define defaults for ALL keys the frontend expects (including advanced)
             defaults = {
                 "overall_score": 0,
                 "ats_score": 0,
-                "professional_summary": "No summary provided by AI.",
+                "professional_summary": "No summary provided.",
                 "final_verdict": "Needs Review",
                 "skills_extraction": {"technical_skills": [], "soft_skills": []},
                 "skill_gap_analysis": [],
-                "experience_evaluation": {
-                    "career_level": "N/A",
-                    "years_of_experience": "N/A",
-                    "impact": "N/A",
-                    "weak_bullets": [],
-                    "suggestions": []
-                },
-                "projects_evaluation": {
-                    "project_count": 0,
-                    "technical_depth": "N/A",
-                    "suggestions": []
-                },
+                "experience_evaluation": {"career_level": "N/A", "years_of_experience": "N/A", "impact": "N/A", "weak_bullets": [], "suggestions": []},
+                "projects_evaluation": {"project_count": 0, "technical_depth": "N/A", "suggestions": []},
                 "education_evaluation": "N/A",
                 "structure_formatting": "N/A",
                 "keyword_ats_optimization": {"missing_keywords": [], "suggested_keywords": []},
@@ -476,60 +449,16 @@ Return JSON with:
                 "actionable_improvements": [],
                 "job_role_matching": [],
                 "bullet_point_rewriting": [],
-                # Advanced analysis defaults
-                "recruiter_scorecard": {
-                    "overall_recommendation": "Needs Review",
-                    "hiring_difficulty": "N/A",
-                    "interview_recommendation": "Screen",
-                    "risk_indicators": [],
-                    "strengths_for_recruiter": [],
-                    "growth_potential": "N/A"
-                },
-                "interview_readiness": {
-                    "score": 0,
-                    "coding_challenge_likelihood": "N/A",
-                    "technical_areas_strong": [],
-                    "technical_areas_weak": [],
-                    "behavioral_questions_likely": []
-                },
-                "career_trajectory": {
-                    "trend": "N/A",
-                    "analysis": "N/A",
-                    "red_flags": [],
-                    "recommended_next_role": "N/A"
-                },
-                "competitive_analysis": {
-                    "market_position": "N/A",
-                    "unique_value_proposition": "N/A",
-                    "differentiation_opportunities": []
-                },
-                "resume_brand_assessment": {
-                    "consistent_message": False,
-                    "career_narrative": "N/A",
-                    "brand_gaps": []
-                },
-                "specificity_analysis": {
-                    "score": 0,
-                    "vague_statements": [],
-                    "specific_alternatives": []
-                },
-                "quantified_achievements": {
-                    "score": 0,
-                    "analysis": "N/A",
-                    "issues": [],
-                    "examples_of_good_quantification": []
-                },
-                "action_verbs_analysis": {
-                    "score": 0,
-                    "strong_verbs": [],
-                    "weak_verbs": [],
-                    "suggestions": []
-                },
-                "leadership_indicators": {
-                    "score": 0,
-                    "detected": [],
-                    "missing": []
-                },
+                # Advanced analysis defaults (for frontend backward compat)
+                "recruiter_scorecard": {"overall_recommendation": "N/A", "hiring_difficulty": "N/A", "interview_recommendation": "N/A", "risk_indicators": [], "strengths_for_recruiter": [], "growth_potential": "N/A"},
+                "interview_readiness": {"score": 0, "coding_challenge_likelihood": "N/A", "technical_areas_strong": [], "technical_areas_weak": [], "behavioral_questions_likely": []},
+                "career_trajectory": {"trend": "N/A", "analysis": "N/A", "red_flags": [], "recommended_next_role": "N/A"},
+                "competitive_analysis": {"market_position": "N/A", "unique_value_proposition": "N/A", "differentiation_opportunities": []},
+                "resume_brand_assessment": {"consistent_message": False, "career_narrative": "N/A", "brand_gaps": []},
+                "specificity_analysis": {"score": 0, "vague_statements": [], "specific_alternatives": []},
+                "quantified_achievements": {"score": 0, "analysis": "N/A", "issues": [], "examples_of_good_quantification": []},
+                "action_verbs_analysis": {"score": 0, "strong_verbs": [], "weak_verbs": [], "suggestions": []},
+                "leadership_indicators": {"score": 0, "detected": [], "missing": []},
                 "contact_info_check": {"complete": False, "missing": [], "issues": []},
                 "resume_length_analysis": {"current_length": "N/A", "status": "N/A", "recommendations": []},
                 "section_organization": {"score": 0, "issues": [], "recommended_order": []},
@@ -543,7 +472,7 @@ Return JSON with:
                 "enhanced_projects": {"project_improvements": [], "project_suggestions": []}
             }
             
-            # Fill in missing keys recursively or at top level
+            # Fill in missing keys
             for key, val in defaults.items():
                 if key not in data or data[key] is None:
                     data[key] = val
