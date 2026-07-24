@@ -153,7 +153,7 @@ function App() {
           </ul>
 
           <div className="row justify-content-center">
-            <div className="col-md-8 col-lg-10">
+            <div className={appTab === 'builder' ? 'col-12' : 'col-12 col-lg-10'}>
 
               {appTab === 'analyze' && (
                 <>
