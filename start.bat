@@ -1,8 +1,8 @@
 @echo off
 echo Starting AI Resume Analyzer...
 
-start cmd /k "cd /d c:\Users\Dhruv\Desktop\AI\backend && python app.py"
+start cmd /k "cd /d "%~dp0backend" && venv\Scripts\python.exe app.py"
 timeout /t 3 /nobreak >nul
-start cmd /k "cd /d c:\Users\Dhruv\Desktop\AI\frontend && npm start"
+start cmd /k "cd /d "%~dp0frontend" && npm start"
 
 echo Both servers started!
