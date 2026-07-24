@@ -488,7 +488,13 @@ Return JSON with:
                     for sub_key, sub_val in val.items():
                         if sub_key not in data[key] or data[key][sub_key] is None:
                             data[key][sub_key] = sub_val
-            
+
+            # Never let an AI-authored "error" field masquerade as a real failure —
+            # routes treat a truthy "error" as a hard error (422), so demote it.
+            if data.get("error"):
+                data["warning"] = str(data.pop("error"))
+                data["error"] = None
+
             return data
         except json.JSONDecodeError as je:
             logging.error(f"JSON Decode Error: {je}. Text: {text[:500]}")
