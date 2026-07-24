@@ -50,7 +50,6 @@ const Landing = ({ onGetStarted }) => {
             <span>Resume<span className="text-primary">AI</span></span>
           </div>
           <div className={`landing-nav-links ${mobileMenu ? 'open' : ''}`}>
-            <button onClick={() => scrollTo('features')}>Features</button>
             <button onClick={toggleTheme} className="theme-toggle-btn" title="Toggle theme">
               <i className={`bi ${theme === 'dark' ? 'bi-sun-fill' : 'bi-moon-fill'}`}></i>
             </button>
@@ -96,7 +95,7 @@ const Landing = ({ onGetStarted }) => {
               <button className="btn btn-primary btn-hero" onClick={onGetStarted}>
                 <i className="bi bi-stars me-2"></i>Analyze Your Resume Free
               </button>
-              <button className="btn btn-outline-primary btn-hero-outline" onClick={() => scrollTo('features')}>
+              <button className="btn btn-outline-primary btn-hero-outline" onClick={() => scrollTo('how')}>
                 <i className="bi bi-play-circle me-2"></i>See How It Works
               </button>
             </div>
@@ -186,7 +185,7 @@ const Landing = ({ onGetStarted }) => {
               </div>
             </div>
             {[
-              { title: 'Product', links: ['Features', 'Pricing', 'Templates', 'API'] },
+              { title: 'Product', links: ['Pricing', 'Templates', 'API'] },
               { title: 'Company', links: ['About', 'Blog', 'Careers', 'Contact'] },
               { title: 'Support', links: ['Help Center', 'Documentation', 'Status', 'Community'] },
               { title: 'Legal', links: ['Privacy', 'Terms', 'Security', 'Cookies'] },
