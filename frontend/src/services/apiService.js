@@ -21,36 +21,53 @@ class ApiService {
       return this.cache.get(cacheKey);
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
-    let response;
-    try {
-      response = await fetch(url, { ...options, signal: controller.signal });
-      clearTimeout(timeoutId);
-      let data;
-      const responseText = await response.text();
+    // Render free tier sleeps after inactivity; requests during wake-up fail
+    // with 502/503/504/522 or network errors, so retry those with a delay.
+    const MAX_ATTEMPTS = 3;
+    const RETRY_DELAY_MS = 15000;
+    let lastError;
+    for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        data = JSON.parse(responseText);
-      } catch (e) {
-        throw new Error(`Server returned invalid response: ${responseText.substring(0, 100)}`);
+        const response = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(timeoutId);
+        if ([502, 503, 504, 522].includes(response.status)) {
+          throw Object.assign(new Error(`Server waking up (${response.status})`), { retryable: true });
+        }
+        let data;
+        const responseText = await response.text();
+        try {
+          data = JSON.parse(responseText);
+        } catch (e) {
+          throw new Error(`Server returned invalid response: ${responseText.substring(0, 100)}`);
+        }
+        if (!response.ok) {
+          throw new Error(data.error || data.message || `Server error ${response.status}`);
+        }
+        if (useCache) {
+          this.cache.set(cacheKey, data);
+        }
+        return data;
+      } catch (error) {
+        clearTimeout(timeoutId);
+        const isNetworkError = error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('Network request failed');
+        if ((error.retryable || isNetworkError) && attempt < MAX_ATTEMPTS) {
+          console.log(`Server not ready (attempt ${attempt}/${MAX_ATTEMPTS}), retrying in ${RETRY_DELAY_MS / 1000}s...`);
+          lastError = error;
+          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+          continue;
+        }
+        if (error.name === 'AbortError') {
+          throw new Error('Request timed out. The server may be starting up — please wait 30 seconds and try again.');
+        }
+        if (error.retryable || isNetworkError) {
+          throw new Error('The server is starting up and did not respond in time. Please wait a moment and try again.');
+        }
+        throw error;
       }
-      if (!response.ok) {
-        throw new Error(data.error || data.message || `Server error ${response.status}`);
-      }
-      if (useCache) {
-        this.cache.set(cacheKey, data);
-      }
-      return data;
-    } catch (error) {
-      clearTimeout(timeoutId);
-      if (error.name === 'AbortError') {
-        throw new Error('Request timed out. The server may be starting up — please wait 30 seconds and try again.');
-      }
-      if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('Network request failed')) {
-        throw new Error('Cannot connect to server. Please check your internet connection and try again.');
-      }
-      throw error;
     }
+    throw lastError || new Error('Request failed after multiple attempts.');
   }
 
   clearCache() {
