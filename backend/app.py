@@ -37,7 +37,8 @@ def create_app():
         return jsonify({
             "status": "online",
             "message": "AI Resume Analyzer Backend is running!",
-            "endpoints": ["/api/analyze", "/api/upload", "/api/history", "/health"]
+            "endpoints": ["/api/analyze", "/api/upload", "/api/history", "/health"],
+            "commit": os.environ.get("RENDER_GIT_COMMIT", "local")[:7]
         }), 200
 
     # Basic Health Check
