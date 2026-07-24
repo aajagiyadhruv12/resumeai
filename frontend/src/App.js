@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { useTheme } from './contexts/ThemeContext';
 import Landing from './components/Landing';
 import UploadForm from './components/UploadForm';
@@ -33,9 +33,11 @@ function App() {
     if (token && email) setUser(email);
     setAuthLoading(false);
 
-    // Keep the backend alive while the tab is open (ping every 10 minutes)
+    // Keep the backend alive while the tab is open (ping every 10 minutes).
+    // Health endpoint lives at the server root, not under /api.
+    const healthUrl = `${(process.env.REACT_APP_API_URL || "https://resumeai-fj7h.onrender.com/api").replace(/\/api\/?$/, '')}/health`;
     const keepAlive = setInterval(() => {
-      fetch(`${process.env.REACT_APP_API_URL || "https://resumeai-fj7h.onrender.com"}/health`).catch(() => {});
+      fetch(healthUrl).catch(() => {});
     }, 10 * 60 * 1000);
 
     return () => clearInterval(keepAlive);
@@ -62,6 +64,7 @@ function App() {
     setUser(null);
     setAnalysis(null);
     setAppTab('analyze');
+    navigate('/');
   };
 
   const isLanding = location.pathname === '/' && !user;
@@ -81,7 +84,7 @@ function App() {
   if (!user) {
     return (
       <Routes>
-        <Route path="*" element={<Login onLogin={(email) => setUser(email)} />} />
+        <Route path="*" element={<Login onLogin={(email) => { setUser(email); navigate('/', { replace: true }); }} />} />
       </Routes>
     );
   }
@@ -211,6 +214,8 @@ function App() {
           </footer>
         </div>
       } />
+      {/* Any unknown URL (including /login after signing in) lands on the dashboard */}
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }
