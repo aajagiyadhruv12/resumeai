@@ -31,6 +31,17 @@ def _set_cached_result(cache_key, result):
     """Cache the result."""
     analysis_cache[cache_key] = {"result": result, "timestamp": time.time()}
 
+@analyze_bp.route('/status', methods=['GET'])
+def ai_status():
+    """Report which AI providers are configured (no secrets) — for debugging deployments."""
+    return jsonify({
+        "gemini_configured": ai_service._gemini_ready,
+        "openai_configured": ai_service._openai_ready,
+        "sambanova_configured": ai_service._sambanova_ready,
+        "version": "2026-07-24"
+    }), 200
+
+
 @analyze_bp.route('/analyze', methods=['GET', 'POST'])
 def analyze():
     if request.method == 'GET':
@@ -92,11 +103,13 @@ def generate():
         analysis = data.get('analysis')
         target_role = data.get('target_role', 'Software Engineer')
 
-        if not resume_text or not analysis:
-            return jsonify({"error": "resume_text and analysis are required"}), 400
+        if not resume_text:
+            return jsonify({"error": "resume_text is required"}), 400
+        if analysis is None:
+            analysis = {}
 
         result = ai_service.generate_improved_resume(resume_text, analysis, target_role)
-        if "error" in result:
+        if result.get("error"):
             return jsonify(result), 422
         return jsonify(result), 200
     except Exception as e:
@@ -141,7 +154,7 @@ def regenerate():
 
         combined_text = f"{resume_text}\n\nUser Custom Improvements to apply:\n{custom_improvements}" if custom_improvements else resume_text
         analysis_result = ai_service.analyze_resume(combined_text, target_role)
-        if "error" in analysis_result:
+        if analysis_result.get("error"):
             return jsonify(analysis_result), 422
 
         firebase_service.save_analysis(user_id, analysis_result)

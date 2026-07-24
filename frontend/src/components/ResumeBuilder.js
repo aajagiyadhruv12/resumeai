@@ -773,18 +773,9 @@ const ATSTemplate = ({ data }) => (
    MAIN RESUME BUILDER COMPONENT
    ══════════════════════════════════════════════ */
 
-const ResumeBuilder = ({ initialResumeText, targetRole = 'Software Engineer', onClose }) => {
-  const [resume, setResume] = useState(createDefaultResume());
-  const [template, setTemplate] = useState('modern');
-  const [aiLoading, setAiLoading] = useState(null);
-  const [aiModal, setAiModal] = useState({ show: false, suggestion: null, loading: false, sectionType: null, onApply: null });
-  const [exporting, setExporting] = useState(false);
-  const previewRef = useRef(null);
-
-  /* ─── Parse initial resume text into the data model ─── */
-  useEffect(() => {
-    if (initialResumeText) {
-      const lines = initialResumeText.split('\n').filter(l => l.trim());
+/* ─── Parse plain resume text into the builder data model ─── */
+const parseResumeText = (resumeText) => {
+      const lines = resumeText.split('\n').filter(l => l.trim());
       const parsed = createDefaultResume();
 
       let currentSection = 'summary';
@@ -962,8 +953,23 @@ const ResumeBuilder = ({ initialResumeText, targetRole = 'Software Engineer', on
         }
       });
 
-      setResume(parsed);
-    }
+      return parsed;
+};
+
+const ResumeBuilder = ({ initialResumeText, targetRole = 'Software Engineer', onClose }) => {
+  const [resume, setResume] = useState(createDefaultResume());
+  const [template, setTemplate] = useState('modern');
+  const [role, setRole] = useState(targetRole);
+  const [aiLoading, setAiLoading] = useState(null);
+  const [aiModal, setAiModal] = useState({ show: false, suggestion: null, loading: false, sectionType: null, onApply: null });
+  const [exporting, setExporting] = useState(false);
+  const [generating, setGenerating] = useState(false);
+  const [toast, setToast] = useState(null);
+  const previewRef = useRef(null);
+
+  /* ─── Parse initial resume text into the data model ─── */
+  useEffect(() => {
+    if (initialResumeText) setResume(parseResumeText(initialResumeText));
   }, [initialResumeText]);
 
   /* ─── Update resume sections ─── */
@@ -979,7 +985,7 @@ const ResumeBuilder = ({ initialResumeText, targetRole = 'Software Engineer', on
   const handleAISuggest = async (sectionType, currentText, context = '') => {
     setAiModal({ show: true, suggestion: null, loading: true, sectionType, onApply: null });
     try {
-      const result = await apiService.getSuggestion(sectionType, currentText, targetRole, context);
+      const result = await apiService.getSuggestion(sectionType, currentText, role, context);
       setAiModal(prev => ({ ...prev, suggestion: result, loading: false,
         onApply: (improved, fullSuggestion) => {
           applySuggestion(sectionType, improved, fullSuggestion || result);
@@ -1160,6 +1166,7 @@ const ResumeBuilder = ({ initialResumeText, targetRole = 'Software Engineer', on
     lines.push('');
     if (data.summary) { lines.push('PROFESSIONAL SUMMARY'); lines.push(data.summary); lines.push(''); }
     if (data.skills.technical.length) { lines.push('TECHNICAL SKILLS'); lines.push(data.skills.technical.join(', ')); lines.push(''); }
+    if (data.skills.soft.length) { lines.push('SOFT SKILLS'); lines.push(data.skills.soft.join(', ')); lines.push(''); }
     if (data.experience.some(e => e.company || e.role)) {
       lines.push('EXPERIENCE');
       data.experience.filter(e => e.company || e.role).forEach(exp => {
@@ -1168,10 +1175,25 @@ const ResumeBuilder = ({ initialResumeText, targetRole = 'Software Engineer', on
         lines.push('');
       });
     }
+    if (data.projects.some(p => p.name || p.techStack)) {
+      lines.push('PROJECTS');
+      data.projects.filter(p => p.name || p.techStack).forEach(proj => {
+        lines.push(`${proj.name}${proj.techStack ? ` | ${proj.techStack}` : ''}${proj.startDate || proj.endDate ? ` (${proj.startDate} - ${proj.endDate})` : ''}`);
+        proj.bullets.filter(b => b.trim()).forEach(b => lines.push(`  - ${b}`));
+        lines.push('');
+      });
+    }
     if (data.education.some(e => e.degree || e.field)) {
       lines.push('EDUCATION');
       data.education.filter(e => e.degree || e.field).forEach(e => {
         lines.push(`${e.degree} ${e.field} - ${e.university} (${e.startYear}-${e.endYear})${e.gpa ? ` GPA: ${e.gpa}` : ''}`);
+      });
+      lines.push('');
+    }
+    if (data.certifications.some(c => c.name)) {
+      lines.push('CERTIFICATIONS');
+      data.certifications.filter(c => c.name).forEach(c => {
+        lines.push(`${c.name}${c.issuer ? ` - ${c.issuer}` : ''}${c.year ? ` (${c.year})` : ''}`);
       });
       lines.push('');
     }
@@ -1191,6 +1213,54 @@ const ResumeBuilder = ({ initialResumeText, targetRole = 'Software Engineer', on
     if (!text || text.length < 5) return;
     setAiLoading(sectionType);
     handleAISuggest(sectionType, text, getSectionContext());
+  };
+
+  /* ─── Toast notifications ─── */
+  const showToast = (msg, type = 'info') => {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 6000);
+  };
+
+  /* ─── One-click: turn the filled details into a full professional resume ─── */
+  const handleGenerateAI = async () => {
+    const hasDetails = resume.name.trim()
+      || resume.skills.technical.length > 0
+      || resume.experience.some(e => e.company || e.role)
+      || resume.projects.some(p => p.name)
+      || resume.education.some(e => e.degree || e.university);
+    if (!hasDetails) {
+      showToast('Fill in a few details first — your name, a skill, a job, a project or your education.', 'warn');
+      return;
+    }
+    setGenerating(true);
+    try {
+      const draft = buildPlainText(resume);
+      // Minimal truthy analysis object — keeps compatibility with older backend validation
+      const seedAnalysis = {
+        weaknesses: [],
+        skill_gap_analysis: [],
+        keyword_ats_optimization: { missing_keywords: [] },
+        actionable_improvements: ['Expand sparse sections into a complete, professional, ATS-friendly resume.']
+      };
+      const result = await apiService.generateResume(draft, seedAnalysis, role || 'Software Engineer');
+      if (result.generated_resume) {
+        const parsed = parseResumeText(result.generated_resume);
+        // Never let the AI invent contact details — keep exactly what the user typed
+        parsed.name = resume.name || parsed.name;
+        parsed.contact = { ...resume.contact };
+        setResume(parsed);
+        showToast(
+          result.warning || 'Professional resume generated! Review each section and fine-tune.',
+          result.warning ? 'warn' : 'success'
+        );
+      } else {
+        showToast('Generation returned no content. Please try again.', 'error');
+      }
+    } catch (err) {
+      showToast(err.message || 'Generation failed. Please try again.', 'error');
+    } finally {
+      setGenerating(false);
+    }
   };
 
   return (
@@ -1216,6 +1286,18 @@ const ResumeBuilder = ({ initialResumeText, targetRole = 'Software Engineer', on
           </div>
         </div>
         <div className="rb-topbar-right">
+          <input
+            className="rb-role-input"
+            value={role}
+            onChange={e => setRole(e.target.value)}
+            placeholder="Target role (e.g. Data Analyst)"
+            title="The role your resume is targeting"
+          />
+          <button className="rb-generate-btn" onClick={handleGenerateAI} disabled={generating} title="Fill a few details, then let AI write a complete professional resume">
+            {generating
+              ? <><span className="spinner-border spinner-border-sm me-2"></span>Generating…</>
+              : <><i className="bi bi-stars me-1"></i> Generate Resume</>}
+          </button>
           <button className="btn btn-outline-secondary btn-sm" onClick={() => handleExport('txt')} disabled={exporting}>
             <i className="bi bi-file-text me-1"></i> TXT
           </button>
@@ -1317,6 +1399,14 @@ const ResumeBuilder = ({ initialResumeText, targetRole = 'Software Engineer', on
           </div>
         </div>
       </div>
+
+      {/* Toast notification */}
+      {toast && (
+        <div className={`rb-toast rb-toast-${toast.type}`}>
+          <i className={`bi ${toast.type === 'success' ? 'bi-check-circle-fill' : toast.type === 'error' ? 'bi-x-circle-fill' : 'bi-info-circle-fill'} me-2`}></i>
+          {toast.msg}
+        </div>
+      )}
 
       {/* AI Suggestion Modal */}
       <AISuggestionModal
