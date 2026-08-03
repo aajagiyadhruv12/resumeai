@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { apiService } from '../services/apiService';
 
 const HistoryPanel = ({ onLoadAnalysis, userId = '' }) => {
@@ -7,20 +7,14 @@ const HistoryPanel = ({ onLoadAnalysis, userId = '' }) => {
   const [deletingId, setDeletingId] = useState(null);
   const [error, setError] = useState('');
 
-  useEffect(() => {
-    fetchHistory();
-  }, []);
-
-  const fetchHistory = async () => {
+  const fetchHistory = useCallback(async () => {
     setLoading(true);
     setError('');
     try {
       const data = await apiService.getHistory(userId || 'anon');
-      // Ensure data is an array before setting state
       if (Array.isArray(data)) {
         setHistory(data);
       } else if (data && typeof data === 'object') {
-        // Handle cases where backend might wrap the array in an object
         const possibleArray = data.history || data.data || [];
         setHistory(Array.isArray(possibleArray) ? possibleArray : []);
       } else {
@@ -37,7 +31,11 @@ const HistoryPanel = ({ onLoadAnalysis, userId = '' }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [fetchHistory]);
 
   const handleDelete = async (docId) => {
     setDeletingId(docId);

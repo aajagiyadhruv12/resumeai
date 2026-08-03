@@ -125,8 +125,6 @@ function App() {
     navigate('/', { replace: true });
   };
 
-  const isLanding = location.pathname === '/' && !user;
-
   if (authLoading) return (
     <div className="d-flex justify-content-center align-items-center" style={{ minHeight: '100vh' }}>
       <div className="spinner-border text-primary" style={{ width: '3rem', height: '3rem' }} role="status"></div>
