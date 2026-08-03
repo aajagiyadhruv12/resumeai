@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from services.ai_service import ai_service
 from services.firebase_service import firebase_service
+from utils.auth import get_current_user
 import logging
 import hashlib
 import time
@@ -57,7 +58,9 @@ def analyze():
         data = request.json
         resume_text = data.get('resume_text')
         target_role = data.get('target_role', 'Software Engineer')
-        user_id = data.get('user_id', 'anonymous')
+        # Derive user_id from AUTHENTICATED TOKEN when present — NEVER trust frontend user_id
+        current_user = get_current_user()
+        user_id = current_user['uid'] if current_user else (data.get('user_id') or 'anonymous'
         filename = data.get('filename', 'resume')
         file_url = data.get('file_url', '')
         use_cache = data.get('use_cache', True)  # Cache by default
@@ -157,7 +160,8 @@ def regenerate():
         resume_text = data.get('resume_text')
         target_role = data.get('target_role', 'Software Engineer')
         custom_improvements = data.get('custom_improvements', '')
-        user_id = data.get('user_id', 'anonymous')
+        current_user = get_current_user()
+        user_id = current_user['uid'] if current_user else (data.get('user_id') or 'anonymous')
 
         if not resume_text:
             return jsonify({"error": "resume_text is required"}), 400

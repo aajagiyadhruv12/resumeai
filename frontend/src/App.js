@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import { onAuthStateChanged } from 'firebase/auth';
+import { auth } from './firebase';
 import { useTheme } from './contexts/ThemeContext';
 import { apiService } from './services/apiService';
 import Landing from './components/Landing';
@@ -7,6 +9,7 @@ import UploadForm from './components/UploadForm';
 import AnalysisReport from './components/AnalysisReport';
 import HistoryPanel from './components/HistoryPanel';
 import Login from './components/Login';
+import Register from './components/Register';
 import ResumeBuilder from './components/ResumeBuilder';
 import './App.css';
 
@@ -14,7 +17,7 @@ function App() {
   const navigate = useNavigate();
   const location = useLocation();
   const { theme, toggleTheme } = useTheme();
-  const [user, setUser] = useState(null);
+  const [user, setUser] = useState(null);     // { uid, email, full_name }  or null
   const [authLoading, setAuthLoading] = useState(true);
   const [analysis, setAnalysis] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -33,7 +36,7 @@ function App() {
   useEffect(() => {
     if (!user) return;
     let cancelled = false;
-    apiService.getHistory('anonymous')
+    apiService.getHistory(user.uid)
       .then(data => {
         const list = Array.isArray(data) ? data : (data?.history || data?.data || []);
         if (cancelled || !Array.isArray(list)) return;
@@ -50,19 +53,45 @@ function App() {
     return () => { cancelled = true; };
   }, [user, analysis]);
 
+  // Firebase Auth listener — single source of truth for auth state
   useEffect(() => {
-    const token = localStorage.getItem('admin_token');
-    const email = localStorage.getItem('admin_email');
-    if (token && email) setUser(email);
-    setAuthLoading(false);
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        // Signed in — fetch profile from backend (/api/auth/me) to get full_name + ensure Firestore record
+        try {
+          const profile = await apiService.getCurrentUser();
+          if (profile) {
+            setUser(profile);
+          } else {
+            setUser({ uid: fbUser.uid, email: fbUser.email || '', full_name: fbUser.displayName || '' });
+          }
+        } catch (_) {
+          setUser({ uid: fbUser.uid, email: fbUser.email || '', full_name: fbUser.displayName || '' });
+        }
+        // Clear legacy admin token if present (Firebase auth is now source of truth)
+        if (localStorage.getItem('admin_token')) {
+          localStorage.removeItem('admin_token');
+          localStorage.removeItem('admin_email');
+        }
+      } else {
+        // Signed out
+        setUser(null);
+        localStorage.removeItem('resumeai_user');
+        localStorage.removeItem('admin_token');
+        localStorage.removeItem('admin_email');
+      }
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
 
-    // Keep the backend alive while the tab is open (ping every 10 minutes).
-    // Health endpoint lives at the server root, not under /api.
+  // Keep the backend alive while the tab is open (ping every 10 minutes).
+  // Health endpoint lives at the server root, not under /api.
+  useEffect(() => {
     const healthUrl = `${(process.env.REACT_APP_API_URL || "https://resumeai-fj7h.onrender.com/api").replace(/\/api\/?$/, '')}/health`;
     const keepAlive = setInterval(() => {
       fetch(healthUrl).catch(() => {});
     }, 10 * 60 * 1000);
-
     return () => clearInterval(keepAlive);
   }, []);
 
@@ -81,13 +110,19 @@ function App() {
     setAppTab('builder');
   };
 
-  const handleLogout = () => {
-    localStorage.removeItem('admin_token');
-    localStorage.removeItem('admin_email');
+  const handleLoginSuccess = async (email, profile) => {
+    // profile from apiService.login — state listener also updates setUser
+    const p = profile || await apiService.getCurrentUser().catch(() => ({ email }));
+    if (p) setUser(p);
+    navigate('/', { replace: true });
+  };
+
+  const handleLogout = async () => {
+    await apiService.logout();
     setUser(null);
     setAnalysis(null);
     setAppTab('analyze');
-    navigate('/');
+    navigate('/', { replace: true });
   };
 
   const isLanding = location.pathname === '/' && !user;
@@ -98,18 +133,21 @@ function App() {
     </div>
   );
 
-  // Show Landing page for non-authenticated users on home route
-  if (!user && isLanding) {
-    return <Landing onGetStarted={() => navigate('/login')} />;
-  }
-
-  // Show Login for non-authenticated users on any route
-  if (!user) {
+  // Public routes for non-authenticated users (/login, /register, landing)
+  if (!user && !authLoading) {
     return (
       <Routes>
-        <Route path="*" element={<Login onLogin={(email) => { setUser(email); navigate('/', { replace: true }); }} />} />
+        <Route path="/" element={<Landing onGetStarted={() => navigate('/login')} />} />
+        <Route path="/login" element={<Login onLogin={handleLoginSuccess} />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
+  }
+
+  // Authenticated but try to hit /login or /register — redirect to dashboard
+  if (user && !authLoading && (location.pathname === '/login' || location.pathname === '/register')) {
+    return <Navigate to="/" replace />;
   }
 
   return (
@@ -156,9 +194,13 @@ function App() {
                             <i className="bi bi-person-fill"></i>
                           </div>
                           <div className="text-start">
-                            <p className="fw-bold mb-0 small">Admin</p>
-                            <small className="text-muted" style={{ fontSize: '11px' }}>AI Resume Analyzer</small>
-                          </div>
+                <p className="fw-bold mb-0 small" style={{ lineHeight: '1.2' }}>
+                  {user?.full_name || user?.email?.split('@')[0] || 'User'}
+                </p>
+                <small className="text-muted" style={{ fontSize: '11px' }}>
+                  {user?.email || 'Signed in'}
+                </small>
+              </div>
                         </div>
                       </div>
                       <div className="p-2">
@@ -276,7 +318,7 @@ function App() {
               {appTab === 'history' && (
                 <HistoryPanel onLoadAnalysis={(entry, text, role, file) => {
                   onAnalysisComplete(entry, text, role, file);
-                }} userId="anonymous" />
+                }} userId={user?.uid || 'anonymous'} />
               )}
 
               {appTab === 'builder' && (

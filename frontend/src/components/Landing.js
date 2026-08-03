@@ -50,11 +50,11 @@ const Landing = ({ onGetStarted }) => {
             <span>Resume<span className="text-primary">AI</span></span>
           </div>
           <div className={`landing-nav-links ${mobileMenu ? 'open' : ''}`}>
-            <button onClick={toggleTheme} className="theme-toggle-btn" title="Toggle theme">
-              <i className={`bi ${theme === 'dark' ? 'bi-sun-fill' : 'bi-moon-fill'}`}></i>
-            </button>
           </div>
           <div className="landing-nav-actions">
+            <button onClick={toggleTheme} className="theme-toggle-btn" title="Toggle theme">
+              <i className={`bi ${theme === 'dark' ? 'bi-sun-fill text-warning' : 'bi-moon-fill text-primary'}`}></i>
+            </button>
             <button className="btn btn-primary btn-sm px-4" onClick={onGetStarted}>
               <i className="bi bi-box-arrow-in-right me-2"></i>Sign In
             </button>

@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from services.firebase_service import firebase_service
 from utils.helpers import validate_file_extension, extract_text_from_file
+from utils.auth import get_current_user
 import logging
 
 upload_bp = Blueprint('upload', __name__)
@@ -15,8 +16,9 @@ def upload_resume():
             return jsonify({"error": "No file provided"}), 400
             
         file = request.files['file']
-        user_id = request.form.get('user_id', 'anonymous')
-        
+        current_user = get_current_user()
+        user_id = current_user['uid'] if current_user else (request.form.get('user_id') or 'anonymous')
+
         if file.filename == '':
             return jsonify({"error": "Empty filename"}), 400
             
