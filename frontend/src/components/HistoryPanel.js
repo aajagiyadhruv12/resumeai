@@ -1,9 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiService } from '../services/apiService';
 
-const USER_ID = 'anonymous';
-
-const HistoryPanel = ({ onLoadAnalysis }) => {
+const HistoryPanel = ({ onLoadAnalysis, userId = '' }) => {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [deletingId, setDeletingId] = useState(null);
@@ -17,7 +15,7 @@ const HistoryPanel = ({ onLoadAnalysis }) => {
     setLoading(true);
     setError('');
     try {
-      const data = await apiService.getHistory(USER_ID);
+      const data = await apiService.getHistory(userId || 'anon');
       // Ensure data is an array before setting state
       if (Array.isArray(data)) {
         setHistory(data);
