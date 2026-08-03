@@ -171,7 +171,7 @@ class AIService:
 
     def analyze_resume(self, resume_text, target_role="Software Engineer"):
         if not self._gemini_ready and not self._openai_ready and not self._sambanova_ready:
-            return {"error": "AI Service not initialized", "details": "All AI API keys are missing or invalid in your Render environment variables."}
+            return self._fallback_analysis("AI service is not configured. Please contact the administrator.")
 
         start_time = time.time()
         logging.info(f"Starting analysis for role: {target_role}")
@@ -215,27 +215,30 @@ RESUME:
                 return result
             except Exception as e2:
                 logging.error(f"Analysis failed completely after {time.time() - start_time:.2f}s: {e2}")
-                # Return a minimal fallback analysis with the info we have
-                return {
-                    "overall_score": 60,
-                    "ats_score": 55,
-                    "professional_summary": "Analysis temporarily unavailable. Please try again.",
-                    "final_verdict": "Needs Review",
-                    "skills_extraction": {"technical_skills": [], "soft_skills": []},
-                    "skill_gap_analysis": [],
-                    "experience_evaluation": {"career_level": "N/A", "years_of_experience": "N/A", "impact": "Unable to analyze at this time.", "weak_bullets": [], "suggestions": []},
-                    "projects_evaluation": {"project_count": 0, "technical_depth": "N/A", "suggestions": []},
-                    "education_evaluation": "Unable to analyze at this time.",
-                    "structure_formatting": "Unable to analyze at this time.",
-                    "keyword_ats_optimization": {"missing_keywords": [], "suggested_keywords": []},
-                    "strengths": [],
-                    "weaknesses": [],
-                    "actionable_improvements": ["Please re-submit your resume for analysis."],
-                    "job_role_matching": [],
-                    "bullet_point_rewriting": [],
-                    "error": None,
-                    "warning": "AI analysis encountered an issue. Basic scores shown. Please try again."
-                }
+                return self._fallback_analysis("AI analysis encountered an issue. Basic scores shown. Please try again.")
+
+    def _fallback_analysis(self, warning):
+        """Graceful degraded analysis returned instead of an error (prevents 422s for end users)."""
+        return {
+            "overall_score": 60,
+            "ats_score": 55,
+            "professional_summary": "Analysis temporarily unavailable. Please try again.",
+            "final_verdict": "Needs Review",
+            "skills_extraction": {"technical_skills": [], "soft_skills": []},
+            "skill_gap_analysis": [],
+            "experience_evaluation": {"career_level": "N/A", "years_of_experience": "N/A", "impact": "Unable to analyze at this time.", "weak_bullets": [], "suggestions": []},
+            "projects_evaluation": {"project_count": 0, "technical_depth": "N/A", "suggestions": []},
+            "education_evaluation": "Unable to analyze at this time.",
+            "structure_formatting": "Unable to analyze at this time.",
+            "keyword_ats_optimization": {"missing_keywords": [], "suggested_keywords": []},
+            "strengths": [],
+            "weaknesses": [],
+            "actionable_improvements": ["Please re-submit your resume for analysis."],
+            "job_role_matching": [],
+            "bullet_point_rewriting": [],
+            "error": None,
+            "warning": warning
+        }
 
     def generate_improved_resume(self, resume_text, analysis, target_role="Software Engineer"):
         weaknesses = analysis.get('weaknesses', [])
@@ -317,12 +320,17 @@ RESUME:
                     return {"generated_resume": text}
             except:
                 pass
-            return {"error": "Generation failed", "details": str(e)}
+            # Last resort: return a tidied version of the original so the user never hits an error
+            tidied = "\n".join(line.strip() for line in resume_text.splitlines() if line.strip())
+            return {
+                "generated_resume": tidied,
+                "warning": "AI enhancement is temporarily unavailable, so your original resume is shown. Please try again in a few minutes."
+            }
 
     def suggest_improvement(self, section_type, current_text, target_role, resume_context=""):
         """Generate AI suggestions for a specific resume section."""
         if not self._gemini_ready and not self._openai_ready and not self._sambanova_ready:
-            return {"error": "AI Service not initialized"}
+            return {"improved_version": current_text, "suggestions": ["AI suggestions are temporarily unavailable. Please try again later."]}
 
         prompts = {
             "summary": f"""Improve this professional summary for a {target_role} role.
@@ -480,7 +488,13 @@ Return JSON with:
                     for sub_key, sub_val in val.items():
                         if sub_key not in data[key] or data[key][sub_key] is None:
                             data[key][sub_key] = sub_val
-            
+
+            # Never let an AI-authored "error" field masquerade as a real failure —
+            # routes treat a truthy "error" as a hard error (422), so demote it.
+            if data.get("error"):
+                data["warning"] = str(data.pop("error"))
+                data["error"] = None
+
             return data
         except json.JSONDecodeError as je:
             logging.error(f"JSON Decode Error: {je}. Text: {text[:500]}")

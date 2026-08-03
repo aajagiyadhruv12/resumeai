@@ -3,13 +3,14 @@ from config.settings import Config
 import jwt
 import datetime
 import logging
+import os
 
 admin_bp = Blueprint('admin', __name__)
 
-# Admin credentials stored in .env
-ADMIN_EMAIL = 'admin@resumeai.com'
-ADMIN_PASSWORD = 'Admin@1234'
-ADMIN_USERNAME = 'admin'
+# Admin credentials: set ADMIN_EMAIL / ADMIN_PASSWORD / ADMIN_USERNAME in .env to override
+ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'admin@resumeai.com')
+ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'Admin@1234')
+ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
 
 @admin_bp.route('/admin/login', methods=['POST'])
 def admin_login():

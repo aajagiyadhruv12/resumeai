@@ -31,6 +31,17 @@ def _set_cached_result(cache_key, result):
     """Cache the result."""
     analysis_cache[cache_key] = {"result": result, "timestamp": time.time()}
 
+@analyze_bp.route('/status', methods=['GET'])
+def ai_status():
+    """Report which AI providers are configured (no secrets) — for debugging deployments."""
+    return jsonify({
+        "gemini_configured": ai_service._gemini_ready,
+        "openai_configured": ai_service._openai_ready,
+        "sambanova_configured": ai_service._sambanova_ready,
+        "version": "2026-07-24"
+    }), 200
+
+
 @analyze_bp.route('/analyze', methods=['GET', 'POST'])
 def analyze():
     if request.method == 'GET':
@@ -63,9 +74,10 @@ def analyze():
                 return jsonify(cached_result), 200
 
         analysis_result = ai_service.analyze_resume(resume_text, target_role)
-        # Only return 422 if there's an actual error string (not None/empty)
+        # Never fail the request over a degraded result — surface it as a warning
         if analysis_result.get("error"):
-            return jsonify(analysis_result), 422
+            analysis_result["warning"] = str(analysis_result.pop("error"))
+            analysis_result["error"] = None
 
         # Cache the successful result
         if use_cache:
@@ -92,12 +104,18 @@ def generate():
         analysis = data.get('analysis')
         target_role = data.get('target_role', 'Software Engineer')
 
-        if not resume_text or not analysis:
-            return jsonify({"error": "resume_text and analysis are required"}), 400
+        if not resume_text:
+            return jsonify({"error": "resume_text is required"}), 400
+        if analysis is None:
+            analysis = {}
 
         result = ai_service.generate_improved_resume(resume_text, analysis, target_role)
-        if "error" in result:
-            return jsonify(result), 422
+        if result.get("error") and not result.get("generated_resume"):
+            # Last-ditch graceful fallback: return the original text tidied up
+            result = {
+                "generated_resume": "\n".join(l.strip() for l in resume_text.splitlines() if l.strip()),
+                "warning": str(result.get("error"))
+            }
         return jsonify(result), 200
     except Exception as e:
         logging.error(f"Route Generate Error: {e}")
@@ -119,7 +137,12 @@ def suggest():
 
         result = ai_service.suggest_improvement(section_type, current_text, target_role, resume_context)
         if "error" in result and "improved_version" not in result:
-            return jsonify(result), 422
+            # Keep the request successful: echo back the user's text with a warning
+            result = {
+                "improved_version": current_text,
+                "suggestions": [],
+                "warning": str(result.get("error"))
+            }
         return jsonify(result), 200
     except Exception as e:
         logging.error(f"Route Suggest Error: {e}")
@@ -141,8 +164,9 @@ def regenerate():
 
         combined_text = f"{resume_text}\n\nUser Custom Improvements to apply:\n{custom_improvements}" if custom_improvements else resume_text
         analysis_result = ai_service.analyze_resume(combined_text, target_role)
-        if "error" in analysis_result:
-            return jsonify(analysis_result), 422
+        if analysis_result.get("error"):
+            analysis_result["warning"] = str(analysis_result.pop("error"))
+            analysis_result["error"] = None
 
         firebase_service.save_analysis(user_id, analysis_result)
         return jsonify(analysis_result), 200
