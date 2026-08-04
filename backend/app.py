@@ -36,10 +36,18 @@ def create_app():
     # Root Redirect/Message
     @app.route('/', methods=['GET'])
     def index():
+        # List every registered API rule so the root endpoint reflects what's
+        # actually live in this build (the auth blueprint, for example, was
+        # missing from earlier deployments because this list was hardcoded).
+        api_rules = sorted(
+            rule.rule
+            for rule in app.url_map.iter_rules()
+            if rule.rule.startswith('/api/') and 'GET' in (rule.methods or set())
+        )
         return jsonify({
             "status": "online",
             "message": "AI Resume Analyzer Backend is running!",
-            "endpoints": ["/api/analyze", "/api/upload", "/api/history", "/health"],
+            "endpoints": api_rules + ["/health"],
             "commit": os.environ.get("RENDER_GIT_COMMIT", "local")[:7]
         }), 200
 
@@ -53,14 +61,23 @@ def create_app():
     def handle_error(e):
         import traceback
         from werkzeug.exceptions import HTTPException
-        
+
         # Handle HTTP exceptions (like 404, 405) specially
         if isinstance(e, HTTPException):
-            return jsonify({
+            payload = {
                 "error": e.name,
                 "message": e.description,
-                "code": e.code
-            }), e.code
+                "code": e.code,
+            }
+            # flask-cors adds the ACAO header on regular responses, but for
+            # HTTP errors raised by the router (404, 405) the response object
+            # bypasses the after_request hook in some setups. Build the JSON
+            # response and then let flask-cors inject the headers via
+            # make_response so the browser never sees a confusing CORS error
+            # when the URL is wrong.
+            from flask import make_response
+            resp = make_response(jsonify(payload), e.code)
+            return resp
 
         error_details = traceback.format_exc()
         logging.error(f"Unhandled Exception:\n{error_details}")
