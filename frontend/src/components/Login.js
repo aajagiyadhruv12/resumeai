@@ -9,6 +9,7 @@ const Login = ({ onLogin }) => {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [errorCode, setErrorCode] = useState('');
   const [info, setInfo] = useState(location.state?.info || '');
   const [showPassword, setShowPassword] = useState(false);
 
@@ -16,12 +17,14 @@ const Login = ({ onLogin }) => {
     e.preventDefault();
     setLoading(true);
     setError('');
+    setErrorCode('');
     setInfo('');
     try {
       const user = await apiService.login(email.trim(), password);
       if (onLogin) onLogin(user.email, user);
     } catch (err) {
       setError(err.message || 'Invalid email or password.');
+      setErrorCode(err.code || '');
     } finally {
       setLoading(false);
     }
@@ -58,6 +61,15 @@ const Login = ({ onLogin }) => {
           <div className="alert alert-danger-soft text-danger border-0 d-flex align-items-center py-3 mb-4 rounded-4" role="alert">
             <i className="bi bi-exclamation-octagon-fill fs-5 me-3"></i>
             <span className="fw-semibold small">{error}</span>
+          </div>
+        )}
+
+        {errorCode === 'auth/blocked-by-client' && (
+          <div className="text-muted small mb-4 px-2">
+            <i className="bi bi-shield-exclamation me-2"></i>
+            <strong>Tip:</strong> open this site in an incognito/private window or pause your
+            ad blocker / privacy extension (uBlock Origin, Brave Shields, AdBlock, etc.) for{' '}
+            <code>airesumer.qzz.io</code> and try again.
           </div>
         )}
 

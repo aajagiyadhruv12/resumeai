@@ -30,7 +30,16 @@ function App() {
   const [builderResumeText, setBuilderResumeText] = useState('');
 
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [loggingOut, setLoggingOut] = useState(false);
   const [stats, setStats] = useState(null);
+
+  // Close the profile dropdown when clicking anywhere outside of it
+  useEffect(() => {
+    if (!dropdownOpen) return;
+    const handler = () => setDropdownOpen(false);
+    document.addEventListener('click', handler);
+    return () => document.removeEventListener('click', handler);
+  }, [dropdownOpen]);
 
   // Lightweight dashboard stats from saved analyses
   useEffect(() => {
@@ -120,6 +129,8 @@ function App() {
   };
 
   const handleLogout = async () => {
+    if (loggingOut) return; // prevent double submission
+    setLoggingOut(true);
     setDropdownOpen(false);
     try {
       // Real Firebase sign-out. If it fails, the user is still signed in, so we
@@ -132,6 +143,8 @@ function App() {
     } catch (error) {
       console.error('Logout error:', error);
       window.alert('Logout failed. Please try again.');
+    } finally {
+      setLoggingOut(false);
     }
   };
 
@@ -215,8 +228,10 @@ function App() {
                         <button type="button" className="dropdown-item rounded-3 py-2 px-3 d-flex align-items-center" onClick={() => { setAppTab('analyze'); navigate('/'); setDropdownOpen(false); }}>
                           <i className="bi bi-speedometer2 me-2"></i>Dashboard
                         </button>
-                        <button type="button" className="dropdown-item rounded-3 text-danger py-2 px-3 d-flex align-items-center" onClick={handleLogout}>
-                          <i className="bi bi-box-arrow-right me-2"></i>Logout
+                        <button type="button" className="dropdown-item rounded-3 text-danger py-2 px-3 d-flex align-items-center" onClick={handleLogout} disabled={loggingOut}>
+                          {loggingOut
+                            ? <><span className="spinner-border spinner-border-sm me-2"></span>Signing out...</>
+                            : <><i className="bi bi-box-arrow-right me-2"></i>Logout</>}
                         </button>
                       </div>
                     </div>
@@ -232,7 +247,7 @@ function App() {
               <>
                 <div className="dash-hero">
                   <div>
-                    <h1 className="dash-title">Welcome back, Admin</h1>
+                    <h1 className="dash-title">Welcome back, {user?.full_name || user?.email?.split('@')[0] || 'there'}</h1>
                     <p className="dash-subtitle">Upload a resume for a full AI analysis, or continue building in the editor.</p>
                   </div>
                   <button className="btn btn-primary d-none d-md-inline-flex align-items-center" onClick={() => setAppTab('builder')}>

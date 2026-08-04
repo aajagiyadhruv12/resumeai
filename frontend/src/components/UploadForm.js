@@ -1,16 +1,47 @@
 import React, { useState } from 'react';
 import { apiService } from '../services/apiService';
 
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB, matches backend limit
+
 const UploadForm = ({ onAnalysisComplete, setLoading, setError }) => {
   const [file, setFile] = useState(null);
   const [targetRole, setTargetRole] = useState('Software Engineer');
   const [uploadStatus, setUploadStatus] = useState('');
   const [isSuccess, setIsSuccess] = useState(false);
+  const [processing, setProcessing] = useState(false);
+
+  const handleFileChange = (e) => {
+    const selected = e.target.files[0];
+    setFile(selected);
+    setIsSuccess(false);
+    setUploadStatus('');
+    if (selected && selected.size > MAX_FILE_SIZE) {
+      setError('File is too large. Maximum allowed size is 10 MB.');
+    } else {
+      setError(null);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!file) return;
+    if (!file || processing) return;
 
+    // Client-side validation with understandable messages
+    if (file.size === 0) {
+      setError('The selected file is empty. Please choose a valid resume file.');
+      return;
+    }
+    if (file.size > MAX_FILE_SIZE) {
+      setError('File is too large. Maximum allowed size is 10 MB.');
+      return;
+    }
+    const ext = (file.name.split('.').pop() || '').toLowerCase();
+    if (ext !== 'pdf' && ext !== 'docx') {
+      setError('Only PDF and DOCX files are supported.');
+      return;
+    }
+
+    setProcessing(true);
     setLoading(true);
     setError(null);
     setIsSuccess(false);
@@ -39,6 +70,7 @@ const UploadForm = ({ onAnalysisComplete, setLoading, setError }) => {
       setUploadStatus('');
       setIsSuccess(false);
     } finally {
+      setProcessing(false);
       setLoading(false);
     }
   };
@@ -85,15 +117,14 @@ const UploadForm = ({ onAnalysisComplete, setLoading, setError }) => {
               type="file" 
               className="d-none" 
               accept=".pdf,.docx"
-              onChange={(e) => {
-                setFile(e.target.files[0]);
-                setIsSuccess(false);
-              }}
+              onChange={handleFileChange}
             />
           </div>
         </div>
-        <button type="submit" className={`btn ${isSuccess ? 'btn-success' : 'btn-primary'} w-100 btn-lg shadow-sm`} disabled={isSuccess}>
-          {isSuccess ? "Upload Finished!" : "Analyze Profile"}
+        <button type="submit" className={`btn ${isSuccess ? 'btn-success' : 'btn-primary'} w-100 btn-lg shadow-sm`} disabled={isSuccess || processing || !file}>
+          {processing
+            ? <><span className="spinner-border spinner-border-sm me-2"></span>Analyzing...</>
+            : isSuccess ? "Upload Finished!" : "Analyze Profile"}
         </button>
         {uploadStatus && (
           <div className={`mt-3 text-center small fw-bold ${isSuccess ? 'text-success' : 'text-muted'}`}>

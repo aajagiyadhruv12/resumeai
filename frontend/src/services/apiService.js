@@ -12,6 +12,83 @@ const wakeUpBackend = async () => {
   }
 };
 
+// Convert raw Firebase auth error codes into user-friendly messages
+function friendlyAuthError(err) {
+  const code = err?.code || '';
+
+  // Map of standard Firebase Web SDK error codes -> user-facing message
+  const map = {
+    'auth/invalid-credential': 'Invalid email or password.',
+    'auth/wrong-password': 'Incorrect password. Please try again.',
+    'auth/user-not-found': 'No account found with this email.',
+    'auth/invalid-email': 'Please enter a valid email address.',
+    'auth/user-disabled': 'This account has been disabled.',
+    'auth/too-many-requests': 'Too many login attempts. Please wait a moment and try again.',
+    'auth/network-request-failed': 'Network error. Please check your connection and try again.',
+    'auth/email-already-in-use': 'An account with this email already exists.',
+    'auth/weak-password': 'Password should be at least 6 characters.',
+  };
+
+  // Map of raw Identity Toolkit REST error messages -> user-facing message.
+  // The Web SDK surfaces these on err.customData._tokenResponse.error.message
+  // (or, for non-token calls, in the caught error's message string).
+  const REST_MAP = {
+    API_KEY_HTTP_REFERRER_BLOCKED:
+      'This site is not authorized to use the Firebase API key. ' +
+      'Please contact the site administrator to add this domain to the API key allowlist.',
+    OPERATION_NOT_ALLOWED:
+      'Email/password sign-in is currently disabled for this project. ' +
+      'Please contact the site administrator.',
+    API_KEY_INVALID:
+      'The Firebase API key configured for this site is invalid. ' +
+      'Please contact the site administrator.',
+    INVALID_API_KEY:
+      'The Firebase API key configured for this site is invalid. ' +
+      'Please contact the site administrator.',
+  };
+
+  // Detect "blocked by client" — happens when an ad-blocker / privacy extension
+  // (uBlock Origin, Brave Shields, AdBlock, ...) blocks identitytoolkit.googleapis.com.
+  // The browser surfaces this as ERR_BLOCKED_BY_CLIENT (Chrome/Edge) or as a
+  // generic "Failed to load resource" (Firefox/Safari). The Web SDK propagates
+  // it as auth/network-request-failed or, more often, a thrown error with the
+  // raw browser message still attached.
+  const rawMessage = String(err?.message || '');
+  const isBlockedByClient =
+    rawMessage.includes('ERR_BLOCKED_BY_CLIENT') ||
+    rawMessage.includes('Failed to load resource') ||
+    rawMessage.includes('net::ERR_BLOCKED');
+
+  // Identity Toolkit REST error message: check the SDK's structured error payload first,
+  // then fall back to the raw message text.
+  const tokenErrMsg = err?.customData?._tokenResponse?.error?.message;
+  const restMessage = tokenErrMsg || rawMessage;
+  const restMatch = Object.keys(REST_MAP).find((k) => restMessage.includes(k));
+
+  let resolved = null;
+  if (map[code]) {
+    resolved = { message: map[code], code };
+  } else if (isBlockedByClient) {
+    resolved = {
+      message:
+        'Sign-in was blocked by your browser or an extension (ad blocker / privacy tool). ' +
+        'Please disable it for this site and try again.',
+      code: 'auth/blocked-by-client',
+    };
+  } else if (restMatch) {
+    resolved = { message: REST_MAP[restMatch], code: restMatch };
+  }
+
+  if (resolved) {
+    const friendly = new Error(resolved.message);
+    friendly.code = resolved.code;
+    // Preserve the original so console.debug can still show what the SDK reported
+    friendly.originalError = err;
+    return friendly;
+  }
+  return err;
+}
+
 // Safely get the Firebase ID token of the currently signed-in user (returns null if signed out)
 async function fetchIdToken() {
   try {
@@ -174,7 +251,12 @@ class ApiService {
     const rawInput = (emailOrUsername || '').trim();
     const USERNAME_TO_EMAIL = { admin: 'admin@resumeai.com' };
     const email = rawInput.includes('@') ? rawInput : (USERNAME_TO_EMAIL[rawInput.toLowerCase()] || rawInput);
-    const cred = await signInWithEmailAndPassword(auth, email, password);
+    let cred;
+    try {
+      cred = await signInWithEmailAndPassword(auth, email, password);
+    } catch (err) {
+      throw friendlyAuthError(err);
+    }
     const fbUser = cred.user;
     let profile = {
       uid: fbUser.uid,

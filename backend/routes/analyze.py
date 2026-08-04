@@ -14,8 +14,12 @@ analysis_cache = {}
 CACHE_TTL = 3600  # 1 hour
 
 def _get_cache_key(resume_text, target_role):
-    """Generate a cache key from resume text and target role."""
-    combined = f"{resume_text[:500]}:{target_role}"  # Use first 500 chars for speed
+    """Generate a cache key from the FULL resume text and target role.
+
+    Hashing only the first 500 characters could collide: two different resumes
+    sharing the same opening lines would return each other's cached analysis.
+    """
+    combined = f"{resume_text}:{target_role}"
     return hashlib.md5(combined.encode()).hexdigest()
 
 def _get_cached_result(cache_key):

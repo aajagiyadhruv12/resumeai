@@ -18,6 +18,8 @@ def register():
 
     if confirm_password is not None and confirm_password != password:
         return jsonify({'error': 'Passwords do not match.'}), 400
+    if not full_name:
+        return jsonify({'error': 'Full name is required.'}), 400
     if not email or not password:
         return jsonify({'error': 'Email and password are required.'}), 400
     if len(password) < 6:

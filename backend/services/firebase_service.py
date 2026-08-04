@@ -80,9 +80,23 @@ class FirebaseService:
             results.append(d)
         return results
 
-    def delete_analysis(self, doc_id):
-        if not self.db: return
-        self.db.collection('analyses').document(doc_id).delete()
+    def delete_analysis(self, doc_id, user_id=None):
+        """Delete an analysis document.
+
+        When user_id is provided, the document is only deleted if it belongs to
+        that user (server-side ownership check). Returns True on success, False
+        when the document does not exist or does not belong to the user.
+        """
+        if not self.db: return False
+        doc_ref = self.db.collection('analyses').document(doc_id)
+        doc = doc_ref.get()
+        if not doc.exists:
+            return False
+        if user_id is not None and doc.to_dict().get('user_id') != user_id:
+            logging.warning(f"Delete denied: doc {doc_id} does not belong to user {user_id}")
+            return False
+        doc_ref.delete()
+        return True
 
 # Singleton instance
 firebase_service = FirebaseService()
