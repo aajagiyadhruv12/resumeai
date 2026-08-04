@@ -96,13 +96,17 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // Keep the backend alive while the tab is open (ping every 10 minutes).
+  // Keep the backend alive while the tab is open (ping immediately on load,
+  // then every 10 minutes). The immediate ping is important: Render's free
+  // tier sleeps after ~15 min of inactivity, so warming it up while the user
+  // reads the landing/login page prevents the register form and the
+  // dashboard stats/history from stalling with "server starting up" errors.
   // Health endpoint lives at the server root, not under /api.
   useEffect(() => {
     const healthUrl = `${(process.env.REACT_APP_API_URL || "https://resumeai-fj7h.onrender.com/api").replace(/\/api\/?$/, '')}/health`;
-    const keepAlive = setInterval(() => {
-      fetch(healthUrl).catch(() => {});
-    }, 10 * 60 * 1000);
+    const ping = () => fetch(healthUrl).catch(() => {});
+    ping();
+    const keepAlive = setInterval(ping, 10 * 60 * 1000);
     return () => clearInterval(keepAlive);
   }, []);
 
