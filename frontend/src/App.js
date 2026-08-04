@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase';
@@ -32,11 +32,22 @@ function App() {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [loggingOut, setLoggingOut] = useState(false);
   const [stats, setStats] = useState(null);
+  const dropdownRef = useRef(null);
 
-  // Close the profile dropdown when clicking anywhere outside of it
+  // Close the profile dropdown when clicking anywhere outside of it.
+  // NOTE: a plain `document.addEventListener('click', close)` breaks the
+  // toggle: React 18 flushes state updates from real (trusted) click events
+  // synchronously, so the effect that registers this listener runs while the
+  // SAME click that opened the menu is still bubbling — the menu then opens
+  // and instantly closes ("clicking profile does nothing"). Guarding on
+  // whether the click landed inside the dropdown container fixes that.
   useEffect(() => {
     if (!dropdownOpen) return;
-    const handler = () => setDropdownOpen(false);
+    const handler = (e) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target)) {
+        setDropdownOpen(false);
+      }
+    };
     document.addEventListener('click', handler);
     return () => document.removeEventListener('click', handler);
   }, [dropdownOpen]);
@@ -207,8 +218,11 @@ function App() {
                 <button className="theme-toggle-btn" onClick={toggleTheme} title="Toggle theme">
                   <i className={`bi ${theme === 'dark' ? 'bi-sun-fill text-warning' : 'bi-moon-fill text-primary'}`}></i>
                 </button>
-                <div style={{ position: 'relative' }}>
-                  <div className="header-avatar" onClick={() => setDropdownOpen(!dropdownOpen)}>
+                <div style={{ position: 'relative' }} ref={dropdownRef}>
+                  <div
+                    className="header-avatar"
+                    onClick={(e) => { e.stopPropagation(); setDropdownOpen((open) => !open); }}
+                  >
                     <i className="bi bi-person-fill"></i>
                   </div>
                   {dropdownOpen && (
