@@ -5,6 +5,7 @@ from routes.analyze import analyze_bp
 from routes.upload import upload_bp
 from routes.history import history_bp
 from routes.admin import admin_bp
+from routes.auth import auth_bp
 import os
 import logging
 
@@ -30,6 +31,7 @@ def create_app():
     app.register_blueprint(upload_bp, url_prefix='/api')
     app.register_blueprint(history_bp, url_prefix='/api')
     app.register_blueprint(admin_bp, url_prefix='/api')
+    app.register_blueprint(auth_bp, url_prefix='/api')
     
     # Root Redirect/Message
     @app.route('/', methods=['GET'])

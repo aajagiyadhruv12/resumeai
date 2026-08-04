@@ -60,7 +60,7 @@ def analyze():
         target_role = data.get('target_role', 'Software Engineer')
         # Derive user_id from AUTHENTICATED TOKEN when present — NEVER trust frontend user_id
         current_user = get_current_user()
-        user_id = current_user['uid'] if current_user else (data.get('user_id') or 'anonymous'
+        user_id = current_user['uid'] if current_user else (data.get('user_id') or 'anonymous')
         filename = data.get('filename', 'resume')
         file_url = data.get('file_url', '')
         use_cache = data.get('use_cache', True)  # Cache by default

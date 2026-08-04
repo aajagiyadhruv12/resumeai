@@ -53,30 +53,32 @@ function App() {
     return () => { cancelled = true; };
   }, [user, analysis]);
 
-  // Firebase Auth listener — single source of truth for auth state
+  // Firebase Auth listener — single source of truth for auth state.
+  // The user state updates IMMEDIATELY from Firebase (no async gap), so the
+  // navbar reflects login/logout instantly. The backend profile fetch is only
+  // an enrichment and is guarded so a stale response can never resurrect a
+  // signed-out user (race condition fix).
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
       if (fbUser) {
-        // Signed in — fetch profile from backend (/api/auth/me) to get full_name + ensure Firestore record
-        try {
-          const profile = await apiService.getCurrentUser();
-          if (profile) {
-            setUser(profile);
-          } else {
-            setUser({ uid: fbUser.uid, email: fbUser.email || '', full_name: fbUser.displayName || '' });
-          }
-        } catch (_) {
-          setUser({ uid: fbUser.uid, email: fbUser.email || '', full_name: fbUser.displayName || '' });
-        }
+        // Signed in — set user state right away from the Firebase user object
+        setUser({ uid: fbUser.uid, email: fbUser.email || '', full_name: fbUser.displayName || '' });
+        // Enrich with backend profile (/api/auth/me) — only if still signed in as the SAME user
+        apiService.getCurrentUser()
+          .then(profile => {
+            if (profile && auth.currentUser && auth.currentUser.uid === fbUser.uid) {
+              setUser(profile);
+            }
+          })
+          .catch(() => {});
         // Clear legacy admin token if present (Firebase auth is now source of truth)
         if (localStorage.getItem('admin_token')) {
           localStorage.removeItem('admin_token');
           localStorage.removeItem('admin_email');
         }
       } else {
-        // Signed out
+        // Signed out — user state becomes null and stays null
         setUser(null);
-        localStorage.removeItem('resumeai_user');
         localStorage.removeItem('admin_token');
         localStorage.removeItem('admin_email');
       }
@@ -118,11 +120,19 @@ function App() {
   };
 
   const handleLogout = async () => {
-    await apiService.logout();
-    setUser(null);
-    setAnalysis(null);
-    setAppTab('analyze');
-    navigate('/', { replace: true });
+    setDropdownOpen(false);
+    try {
+      // Real Firebase sign-out. If it fails, the user is still signed in, so we
+      // surface the error instead of pretending logout succeeded.
+      await apiService.logout();
+      setUser(null);
+      setAnalysis(null);
+      setAppTab('analyze');
+      navigate('/', { replace: true });
+    } catch (error) {
+      console.error('Logout error:', error);
+      window.alert('Logout failed. Please try again.');
+    }
   };
 
   if (authLoading) return (
@@ -202,10 +212,10 @@ function App() {
                         </div>
                       </div>
                       <div className="p-2">
-                        <button className="dropdown-item rounded-3 py-2 px-3 d-flex align-items-center" onClick={() => { setAppTab('analyze'); navigate('/'); setDropdownOpen(false); }}>
+                        <button type="button" className="dropdown-item rounded-3 py-2 px-3 d-flex align-items-center" onClick={() => { setAppTab('analyze'); navigate('/'); setDropdownOpen(false); }}>
                           <i className="bi bi-speedometer2 me-2"></i>Dashboard
                         </button>
-                        <button className="dropdown-item rounded-3 text-danger py-2 px-3 d-flex align-items-center" onClick={handleLogout}>
+                        <button type="button" className="dropdown-item rounded-3 text-danger py-2 px-3 d-flex align-items-center" onClick={handleLogout}>
                           <i className="bi bi-box-arrow-right me-2"></i>Logout
                         </button>
                       </div>
