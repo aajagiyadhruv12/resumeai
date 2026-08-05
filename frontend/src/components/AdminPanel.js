@@ -59,6 +59,10 @@ const AdminPanel = () => {
     setLoginError('');
     try {
       const res = await apiService.adminLogin(loginEmail.trim(), loginPassword);
+      if (!res || !res.token) {
+        setLoginError(res?.error || 'Login failed. Check your admin credentials.');
+        return;
+      }
       setAdminEmail(res?.email || loginEmail.trim());
       setAuthed(true);
       setLoginPassword('');

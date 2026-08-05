@@ -92,16 +92,14 @@ function App() {
             }
           })
           .catch(() => {});
-        // Clear legacy admin token if present (Firebase auth is now source of truth)
-        if (localStorage.getItem('admin_token')) {
-          localStorage.removeItem('admin_token');
-          localStorage.removeItem('admin_email');
-        }
+        // NOTE: the standalone admin session (admin_token / admin_email in
+        // localStorage) is intentionally NOT cleared here — the AdminPanel owns
+        // its own JWT session independent of Firebase auth. Clearing it on
+        // Firebase auth state changes (second tab, token refresh) would
+        // silently log the admin out of the panel.
       } else {
         // Signed out — user state becomes null and stays null
         setUser(null);
-        localStorage.removeItem('admin_token');
-        localStorage.removeItem('admin_email');
       }
       setAuthLoading(false);
     });
@@ -173,7 +171,7 @@ function App() {
   // Admin panel is standalone — reachable whether signed in as a user or not.
   // It manages its own admin JWT session and is intentionally separate from
   // the Firebase user auth flow.
-  if (location.pathname === '/admin') {
+  if (/^\/admin\/?$/.test(location.pathname)) {
     return <AdminPanel />;
   }
 
