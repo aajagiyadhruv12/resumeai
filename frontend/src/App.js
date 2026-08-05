@@ -11,6 +11,7 @@ import HistoryPanel from './components/HistoryPanel';
 import Login from './components/Login';
 import Register from './components/Register';
 import ResumeBuilder from './components/ResumeBuilder';
+import AdminPanel from './components/AdminPanel';
 import './App.css';
 
 function App() {
@@ -169,6 +170,13 @@ function App() {
     </div>
   );
 
+  // Admin panel is standalone — reachable whether signed in as a user or not.
+  // It manages its own admin JWT session and is intentionally separate from
+  // the Firebase user auth flow.
+  if (location.pathname === '/admin') {
+    return <AdminPanel />;
+  }
+
   // Public routes for non-authenticated users (/login, /register, landing)
   if (!user && !authLoading) {
     return (
@@ -245,6 +253,9 @@ function App() {
                       <div className="p-2">
                         <button type="button" className="dropdown-item rounded-3 py-2 px-3 d-flex align-items-center" onClick={() => { setAppTab('analyze'); navigate('/'); setDropdownOpen(false); }}>
                           <i className="bi bi-speedometer2 me-2"></i>Dashboard
+                        </button>
+                        <button type="button" className="dropdown-item rounded-3 py-2 px-3 d-flex align-items-center" onClick={() => { navigate('/admin'); setDropdownOpen(false); }}>
+                          <i className="bi bi-shield-lock me-2"></i>Admin Panel
                         </button>
                         <button type="button" className="dropdown-item rounded-3 text-danger py-2 px-3 d-flex align-items-center" onClick={handleLogout} disabled={loggingOut}>
                           {loggingOut

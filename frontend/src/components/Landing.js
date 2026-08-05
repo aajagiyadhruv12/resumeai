@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { useTheme } from '../contexts/ThemeContext';
 import { motion } from 'framer-motion';
 
@@ -52,6 +53,9 @@ const Landing = ({ onGetStarted }) => {
           <div className={`landing-nav-links ${mobileMenu ? 'open' : ''}`}>
           </div>
           <div className="landing-nav-actions">
+            <Link to="/admin" className="landing-admin-link" title="Admin login">
+              <i className="bi bi-shield-lock me-1"></i>Admin
+            </Link>
             <button onClick={toggleTheme} className="theme-toggle-btn" title="Toggle theme">
               <i className={`bi ${theme === 'dark' ? 'bi-sun-fill text-warning' : 'bi-moon-fill text-primary'}`}></i>
             </button>

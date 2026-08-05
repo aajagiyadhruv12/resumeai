@@ -20,6 +20,9 @@ yarn-error.log*
 build/
 dist/
 
+# Logs
+*.log
+
 # IDEs
 .vscode/
 .idea/

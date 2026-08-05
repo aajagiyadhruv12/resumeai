@@ -105,17 +105,24 @@ class ApiService {
     this.cache = new Map();
   }
 
-  async _handleFetch(url, options = {}, timeoutMs = 180000, useCache = false) {
+  async _handleFetch(url, options = {}, timeoutMs = 180000, useCache = false, useAdminToken = false) {
     const cacheKey = `${url}-${JSON.stringify(options)}`;
     if (useCache && this.cache.has(cacheKey)) {
       console.log('Returning cached data for:', url);
       return this.cache.get(cacheKey);
     }
 
-    // Inject Firebase Auth ID token if present + default Accept JSON header
+    // Inject the right auth token + default Accept JSON header.
+    // Admin endpoints use the dedicated admin JWT (stored separately from the
+    // Firebase session), everything else uses the Firebase ID token.
     const idToken = await fetchIdToken();
     const headers = new Headers(options.headers || {});
-    if (idToken) headers.set('Authorization', `Bearer ${idToken}`);
+    if (useAdminToken) {
+      const adminToken = localStorage.getItem('admin_token');
+      if (adminToken) headers.set('Authorization', `Bearer ${adminToken}`);
+    } else if (idToken) {
+      headers.set('Authorization', `Bearer ${idToken}`);
+    }
     if (!headers.has('Accept')) headers.set('Accept', 'application/json');
     const nextOptions = { ...options, headers };
 
@@ -217,6 +224,35 @@ class ApiService {
     const result = await this._handleFetch(`${API_URL}/history/${docId}`, { method: 'DELETE' }, 30000);
     this.clearCache(); // Clear history cache after deletion
     return result;
+  }
+
+  // ── Admin panel ──────────────────────────────────────────────
+  async adminLogin(emailOrUsername, password) {
+    await wakeUpBackend();
+    const result = await this._handleFetch(`${API_URL}/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: emailOrUsername, password, username: emailOrUsername }),
+    }, 30000, false);
+    if (result && result.token) {
+      localStorage.setItem('admin_token', result.token);
+      localStorage.setItem('admin_email', result.email || emailOrUsername);
+    }
+    return result;
+  }
+
+  async getAdminUsers() {
+    return this._handleFetch(`${API_URL}/admin/users`, { method: 'GET' }, 30000, false, true);
+  }
+
+  async getAdminAnalyses() {
+    return this._handleFetch(`${API_URL}/admin/analyses`, { method: 'GET' }, 60000, false, true);
+  }
+
+  async adminLogout() {
+    localStorage.removeItem('admin_token');
+    localStorage.removeItem('admin_email');
+    this.clearCache();
   }
 
   async getSuggestion(sectionType, currentText, targetRole = 'Software Engineer', resumeContext = '') {

@@ -80,6 +80,25 @@ class FirebaseService:
             results.append(d)
         return results
 
+    def get_all_analyses(self):
+        """Return every analysis document across all users (admin only).
+
+        No user filter — used by the admin panel to view all users' data.
+        The caller is responsible for verifying the requester is an admin.
+        """
+        if not self.db: return []
+        docs = self.db.collection('analyses')\
+            .order_by('timestamp', direction=firestore.Query.DESCENDING)\
+            .stream()
+        results = []
+        for doc in docs:
+            d = doc.to_dict()
+            d['id'] = doc.id
+            if d.get('timestamp'):
+                d['timestamp'] = d['timestamp'].isoformat()
+            results.append(d)
+        return results
+
     def delete_analysis(self, doc_id, user_id=None):
         """Delete an analysis document.
 

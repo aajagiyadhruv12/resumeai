@@ -3419,3 +3419,237 @@ header .display-2 {
   .dash-hero { flex-direction: column; align-items: flex-start; }
   .app-main { padding: 20px 14px 48px; }
 }
+
+/* ════════════════════════════════════════════════
+   ADMIN PANEL
+   ════════════════════════════════════════════════ */
+
+/* Tag used for missing/null scores */
+.tag-secondary {
+  background: var(--gray-100);
+  color: var(--text-muted);
+  border: 1px solid var(--border-color);
+}
+
+/* Admin link in the landing navbar */
+.landing-admin-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  color: var(--text-muted);
+  font-weight: 600;
+  font-size: 0.9rem;
+  text-decoration: none;
+  border-radius: var(--radius-md);
+  transition: all var(--transition-base);
+}
+.landing-admin-link:hover {
+  color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+/* ── Admin login screen ── */
+.admin-login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+
+.admin-login-card {
+  width: 100%;
+  max-width: 420px;
+  padding: 40px 36px;
+  text-align: center;
+}
+
+.admin-login-card:hover { transform: none; }
+
+.admin-login-icon {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 16px;
+  border-radius: var(--radius-xl);
+  background: var(--gradient-primary);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  box-shadow: 0 10px 24px var(--primary-glow);
+}
+
+.admin-login-card .form-control {
+  padding: 12px 14px;
+  border-radius: var(--radius-md);
+}
+
+/* ── Admin dashboard shell ── */
+.admin-page { min-height: 100vh; display: flex; flex-direction: column; }
+
+.admin-header {
+  position: sticky;
+  top: 0;
+  z-index: var(--z-navbar);
+  background: var(--white-glass-strong);
+  backdrop-filter: blur(20px) saturate(1.4);
+  -webkit-backdrop-filter: blur(20px) saturate(1.4);
+  border-bottom: 1px solid var(--border-color);
+}
+
+.admin-header-inner {
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.admin-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+}
+.admin-brand i { color: var(--primary); font-size: 1.25rem; }
+
+.admin-header-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+
+.admin-email-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  background: var(--primary-subtle);
+  color: var(--primary);
+  border-radius: var(--radius-full);
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.admin-header .btn-outline-secondary {
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+.admin-header .btn-outline-secondary:hover {
+  color: var(--primary);
+  border-color: var(--primary);
+  background: var(--primary-subtle);
+}
+
+.admin-header .btn-outline-danger {
+  color: var(--danger);
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+}
+.admin-header .btn-outline-danger:hover {
+  background: var(--danger-soft);
+  border-color: var(--danger);
+}
+
+.admin-body { flex: 1; }
+
+/* ── Admin tabs ── */
+.admin-tabs {
+  display: inline-flex;
+  gap: 6px;
+  background: var(--bg-input);
+  padding: 5px;
+  border-radius: var(--radius-full);
+  border: 1px solid var(--border-color);
+}
+
+.admin-tab {
+  border: none;
+  background: transparent;
+  padding: 8px 18px;
+  border-radius: var(--radius-full);
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: all var(--transition-base);
+  font-family: var(--font-sans);
+  white-space: nowrap;
+}
+.admin-tab:hover { color: var(--text-primary); background: var(--bg-hover); }
+.admin-tab.active {
+  background: var(--gradient-primary);
+  color: #fff;
+  box-shadow: 0 4px 12px var(--primary-glow);
+}
+
+/* ── Admin users table ── */
+.admin-table { --bs-table-bg: transparent; }
+.admin-table thead th {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-muted);
+  background: var(--bg-input);
+  border-bottom: 2px solid var(--border-color);
+  padding: 12px 16px;
+}
+.admin-table tbody td {
+  padding: 14px 16px;
+  vertical-align: middle;
+  border-color: var(--border-light);
+}
+.admin-table tbody tr { transition: background var(--transition-fast); }
+.admin-table tbody tr:hover { background: var(--primary-subtle); }
+
+/* ── Admin analyses list ── */
+.admin-analysis { overflow: hidden; }
+.admin-analysis:hover { transform: none; }
+.admin-analysis.open { border-color: var(--primary); box-shadow: var(--shadow-md); }
+
+.admin-analysis-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 20px;
+  cursor: pointer;
+  flex-wrap: wrap;
+  transition: background var(--transition-fast);
+}
+.admin-analysis-header:hover { background: var(--bg-hover); }
+
+.admin-analysis-detail {
+  padding: 16px 20px 20px;
+  border-top: 1px solid var(--border-light);
+}
+
+.admin-resume-text {
+  background: var(--bg-input);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 14px;
+  max-height: 320px;
+  overflow: auto;
+  font-size: 0.82rem;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+  color: var(--text-secondary);
+  font-family: var(--font-mono);
+}
+
+@media (max-width: 640px) {
+  .admin-header-inner { flex-direction: column; align-items: flex-start; }
+  .admin-email-badge { display: none; }
+  .admin-tabs { width: 100%; }
+  .admin-tab { flex: 1; justify-content: center; }
+}
