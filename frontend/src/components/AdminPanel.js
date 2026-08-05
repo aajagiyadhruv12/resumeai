@@ -190,7 +190,14 @@ const AdminPanel = () => {
       </div>
 
       <div className="admin-body container-xl py-4">
-        {error && <div className="alert alert-danger">{error}</div>}
+        {error && (
+          <div className="alert alert-danger d-flex align-items-center justify-content-between gap-3">
+            <span className="flex-grow-1">{error}</span>
+            <button className="btn btn-sm btn-outline-danger text-nowrap" onClick={loadData}>
+              <i className="bi bi-arrow-clockwise me-1"></i>Try again
+            </button>
+          </div>
+        )}
 
         <div className="dash-stats mb-4">
           <div className="dash-stat-card">

@@ -126,10 +126,14 @@ class ApiService {
     if (!headers.has('Accept')) headers.set('Accept', 'application/json');
     const nextOptions = { ...options, headers };
 
-    // Render free tier sleeps after inactivity; requests during wake-up fail
-    // with 502/503/504/522 or network errors, so retry those with a delay.
-    const MAX_ATTEMPTS = 3;
-    const RETRY_DELAY_MS = 15000;
+    // Render's free tier sleeps after ~15 min of inactivity, so the first
+    // request after a sleep can fail with 502/503/504/522, a network error, or
+    // a timeout while the instance boots. Retry those with a short backoff
+    // (2s, 4s, 6s) per the deployment guidance. Real HTTP errors (401/403/
+    // 404/500/...) are NEVER retried or masked — they surface immediately with
+    // the backend's actual message.
+    const MAX_ATTEMPTS = 4;
+    const RETRY_DELAYS_MS = [2000, 4000, 6000];
     let lastError;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       const controller = new AbortController();
@@ -148,6 +152,7 @@ class ApiService {
           throw new Error(`Server returned invalid response: ${responseText.substring(0, 100)}`);
         }
         if (!response.ok) {
+          // Real backend error (401/403/404/500/...) — never hide or retry it.
           const err = new Error(data?.error || data?.message || `Server error ${response.status}`);
           if (data?.details && typeof data.details === 'object') err.details = data.details;
           throw err;
@@ -158,20 +163,43 @@ class ApiService {
         return data;
       } catch (error) {
         clearTimeout(timeoutId);
-        const isNetworkError = error.message.includes('Failed to fetch') || error.message.includes('NetworkError') || error.message.includes('Network request failed');
-        if ((error.retryable || isNetworkError) && attempt < MAX_ATTEMPTS) {
-          console.log(`Server not ready (attempt ${attempt}/${MAX_ATTEMPTS}), retrying in ${RETRY_DELAY_MS / 1000}s...`);
+        const isNetworkError =
+          error.message.includes('Failed to fetch') ||
+          error.message.includes('NetworkError') ||
+          error.message.includes('Network request failed') ||
+          error.message.includes('Load failed') ||
+          error.message.includes('ERR_BLOCKED_BY_CLIENT');
+        const isAbort = error.name === 'AbortError';
+        // Retry aborts only on short-timeout calls (admin/history at 20-60s)
+        // that can hang while a Render instance cold-boots. Long-running AI
+        // calls (180s) that time out surface immediately instead of silently
+        // re-running expensive backend work up to 4 times.
+        const abortRetryable = isAbort && timeoutMs <= 60000;
+        const shouldRetry = error.retryable || isNetworkError || abortRetryable;
+        if (shouldRetry && attempt < MAX_ATTEMPTS) {
+          const delay = RETRY_DELAYS_MS[attempt - 1] ?? 6000;
+          console.log(`Server not ready (attempt ${attempt}/${MAX_ATTEMPTS}), retrying in ${delay / 1000}s...`);
           lastError = error;
-          await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS));
+          await new Promise(resolve => setTimeout(resolve, delay));
           continue;
         }
-        if (error.name === 'AbortError') {
-          throw new Error('Request timed out. The server may be starting up — please wait 30 seconds and try again.');
+        // All retries exhausted — report the actual cause instead of guessing.
+        if (error.retryable) {
+          throw new Error('The server is waking up from a cold start and did not respond in time. Please wait a moment and try again.');
         }
-        if (error.retryable || isNetworkError) {
-          throw new Error('The server is starting up and did not respond in time. Please wait a moment and try again.');
+        if (isAbort) {
+          throw new Error('Request timed out. The server may still be starting up — please wait a moment and try again.');
         }
-        throw error;
+        if (isNetworkError) {
+          // Could be a cold start, a CORS problem, or an ad-blocker/extension
+          // blocking the request (ERR_BLOCKED_BY_CLIENT) — say so.
+          throw new Error(
+            'Could not reach the server. This is usually the server waking up after being idle ' +
+            '(Render free tier), but can also be caused by a network issue, CORS, or a browser ' +
+            'extension/ad-blocker (ERR_BLOCKED_BY_CLIENT) blocking the request. Please wait a moment and try again.'
+          );
+        }
+        throw error; // 401/403/404/500/... surface with their real message
       }
     }
     throw lastError || new Error('Request failed after multiple attempts.');
@@ -217,6 +245,7 @@ class ApiService {
   }
 
   async getHistory(userId) {
+    await wakeUpBackend();
     return this._handleFetch(`${API_URL}/history?user_id=${userId}`, {}, 30000, true);
   }
 
@@ -242,10 +271,12 @@ class ApiService {
   }
 
   async getAdminUsers() {
+    await wakeUpBackend();
     return this._handleFetch(`${API_URL}/admin/users`, { method: 'GET' }, 30000, false, true);
   }
 
   async getAdminAnalyses() {
+    await wakeUpBackend();
     return this._handleFetch(`${API_URL}/admin/analyses`, { method: 'GET' }, 60000, false, true);
   }
 
@@ -343,6 +374,7 @@ class ApiService {
     // Firebase Auth is the single source of truth — no cached user fallback.
     if (!auth.currentUser) return null;
     try {
+      await wakeUpBackend();
       return await this._handleFetch(`${API_URL}/auth/me`, { method: 'GET' }, 20000, false);
     } catch (e) {
       const u = auth.currentUser;

@@ -1,4 +1,4 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request, make_response
 from flask_cors import CORS
 from config.settings import Config
 from routes.analyze import analyze_bp
@@ -12,19 +12,53 @@ import logging
 # Basic Logging Config
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 
+# CORS configuration — one source of truth shared by flask-cors and the
+# explicit preflight handler below, so the two can never drift apart.
+ALLOWED_ORIGINS = [
+    "https://airesumer.qzz.io",      # production frontend
+    "http://localhost:3000",          # local dev
+    "https://resumeai-fj7h.onrender.com",  # backend itself (health checks)
+]
+ALLOWED_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
+ALLOWED_HEADERS = ["Content-Type", "Authorization", "X-Requested-With", "Accept"]
+
+
 def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
     
-    # Enable CORS for all routes and allow common headers/methods
+    # Enable CORS for all routes and allow common headers/methods.
+    # supports_credentials stays False on purpose: authentication uses Bearer
+    # JWTs in the Authorization header, NOT cookies, so no credentialed CORS is
+    # needed (and combining credentials with wildcard origins is forbidden).
     CORS(app, resources={
         r"/*": {
-            "origins": ["https://airesumer.qzz.io", "http://localhost:3000", "https://resumeai-fj7h.onrender.com"],
-            "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-            "allow_headers": ["Content-Type", "Authorization", "X-Requested-With", "Accept"],
+            "origins": ALLOWED_ORIGINS,
+            "methods": ALLOWED_METHODS,
+            "allow_headers": ALLOWED_HEADERS,
             "supports_credentials": False
         }
     })
+
+    # Answer browser CORS preflight (OPTIONS) requests BEFORE routing.
+    # Without this, a preflight to a missing/unauthorized route returns
+    # 404/405 and the browser blocks the real request with a misleading CORS
+    # error (which the frontend then misreports as a server cold start).
+    # Returning 204 here guarantees every preflight succeeds; actual admin
+    # authentication is STILL enforced on the real GET/POST requests.
+    @app.before_request
+    def handle_preflight():
+        if request.method == 'OPTIONS':
+            origin = request.headers.get('Origin', '')
+            resp = make_response('', 204)
+            if origin in ALLOWED_ORIGINS:
+                resp.headers['Access-Control-Allow-Origin'] = origin
+                resp.headers['Vary'] = 'Origin'
+                resp.headers['Access-Control-Allow-Methods'] = ', '.join(ALLOWED_METHODS)
+                resp.headers['Access-Control-Allow-Headers'] = ', '.join(ALLOWED_HEADERS)
+                resp.headers['Access-Control-Max-Age'] = '86400'
+            return resp
+        return None
     
     # Register Blueprints
     app.register_blueprint(analyze_bp, url_prefix='/api')
@@ -51,10 +85,17 @@ def create_app():
             "commit": os.environ.get("RENDER_GIT_COMMIT", "local")[:7]
         }), 200
 
-    # Basic Health Check
+    # Basic Health Check (server root — used by the frontend warm-up ping and
+    # the keep-alive workflow)
     @app.route('/health', methods=['GET'])
     def health():
         return jsonify({"status": "healthy"}), 200
+
+    # Lightweight health check under the API prefix too. Cheap: no AI calls,
+    # no DB queries — just a liveness signal for load balancers / monitors.
+    @app.route('/api/health', methods=['GET'])
+    def api_health():
+        return jsonify({"status": "ok"}), 200
 
     # Global Error Handler
     @app.errorhandler(Exception)
