@@ -35,16 +35,25 @@ function App() {
   const [stats, setStats] = useState(null);
   const dropdownRef = useRef(null);
 
-  // ── Admin Mode ─────────────────────────────────────────────
+  // ── Admin Mode / Role ───────────────────────────────────────
   // The admin panel keeps its own session (admin_token / admin_email in
-  // localStorage), independent of Firebase. When that session is present, the
-  // app recognizes the signed-in account as an ADMIN: an "Admin" badge shows
-  // in the topbar and profile dropdown, and the account is flagged as admin
-  // (not a regular user). App features (analyze / history / builder) still run
-  // on the authenticated Firebase account, which is what the backend
-  // authorizes (history and saved analyses are tied to the Firebase token).
+  // localStorage) issued by the backend JWT — independent of Firebase. When
+  // that session is active, the app runs in ADMIN MODE: the authenticated
+  // identity IS the admin account (role 'admin'), never a normal user. The
+  // backend accepts the admin JWT on every app endpoint, so the admin can
+  // analyze resumes, view their own history, and use the builder while staying
+  // the admin — and analyses the admin creates are stored under the ADMIN
+  // account. Without an admin session the app uses the Firebase user (role
+  // 'user').
   const isAdmin = !!localStorage.getItem('admin_token');
-  const appUser = useMemo(() => (user ? { ...user, isAdmin } : null), [user, isAdmin]);
+  const adminEmail = localStorage.getItem('admin_email') || 'admin@resumeai.com';
+  const appUser = useMemo(() => {
+    if (isAdmin) {
+      return { uid: 'admin', email: adminEmail, full_name: 'Admin', role: 'admin', isAdmin: true };
+    }
+    if (user) return { ...user, role: 'user', isAdmin: false };
+    return null;
+  }, [user, isAdmin, adminEmail]);
 
   // Close the profile dropdown when clicking anywhere outside of it.
   // NOTE: a plain `document.addEventListener('click', close)` breaks the
@@ -164,7 +173,7 @@ function App() {
       setUser(null);
       setAnalysis(null);
       setAppTab('analyze');
-      navigate('/', { replace: true });
+      navigate('/login', { replace: true });
     } catch (error) {
       console.error('Logout error:', error);
       window.alert('Logout failed. Please try again.');
@@ -179,10 +188,14 @@ function App() {
     </div>
   );
 
-  // Admin panel is standalone — reachable whether signed in as a user or not.
-  // It manages its own admin JWT session and is intentionally separate from
-  // the Firebase user auth flow.
+  // ── /admin route protection ──
+  // - Admin session active          -> Admin Panel (dashboard or its own login)
+  // - Signed-in NORMAL user         -> denied, sent back to the main app
+  // - Not signed in at all          -> Admin Panel shows the admin sign-in
+  //                                    screen (the admin's login entry point)
   if (/^\/admin\/?$/.test(location.pathname)) {
+    if (isAdmin) return <AdminPanel />;
+    if (user) return <Navigate to="/" replace />;
     return <AdminPanel />;
   }
 
@@ -271,9 +284,11 @@ function App() {
                         <button type="button" className="dropdown-item rounded-3 py-2 px-3 d-flex align-items-center" onClick={() => { setAppTab('analyze'); navigate('/'); setDropdownOpen(false); }}>
                           <i className="bi bi-speedometer2 me-2"></i>Dashboard
                         </button>
-                        <button type="button" className="dropdown-item rounded-3 py-2 px-3 d-flex align-items-center" onClick={() => { navigate('/admin'); setDropdownOpen(false); }}>
-                          <i className="bi bi-shield-lock me-2"></i>Admin Panel
-                        </button>
+                        {appUser?.isAdmin && (
+                          <button type="button" className="dropdown-item rounded-3 py-2 px-3 d-flex align-items-center" onClick={() => { navigate('/admin'); setDropdownOpen(false); }}>
+                            <i className="bi bi-shield-lock me-2"></i>Admin Panel
+                          </button>
+                        )}
                         <button type="button" className="dropdown-item rounded-3 text-danger py-2 px-3 d-flex align-items-center" onClick={handleLogout} disabled={loggingOut}>
                           {loggingOut
                             ? <><span className="spinner-border spinner-border-sm me-2"></span>Signing out...</>

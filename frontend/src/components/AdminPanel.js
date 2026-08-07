@@ -74,12 +74,22 @@ const AdminPanel = () => {
   };
 
   const handleLogout = async () => {
-    await apiService.adminLogout();
+    // Clear the COMPLETE authenticated session (admin JWT + any Firebase
+    // session) so no stale tokens remain, then land on the Sign In page.
+    // apiService.logout() wipes the admin token synchronously BEFORE the
+    // fallible Firebase sign-out, so even a signOut failure can't leave a
+    // stale admin session behind.
+    try {
+      await apiService.logout();
+    } catch (e) {
+      window.alert('Your admin session was cleared, but the app sign-out failed. Please refresh the page.');
+    }
     setAuthed(false);
     setAdminEmail('');
     setUsers([]);
     setAnalyses([]);
     setExpandedId(null);
+    navigate('/login');
   };
 
   const formatDate = (ts) => {
@@ -179,11 +189,12 @@ const AdminPanel = () => {
             <span className="admin-email-badge">
               <i className="bi bi-person-fill me-1"></i>{adminEmail}
             </span>
-            {/* "App" jumps straight to the app login (/login). If the visitor is
-                already signed into the app, App.js auto-redirects /login to the
-                dashboard, so this lands on the main page either way — no more
-                being dumped on the marketing/landing page. */}
-            <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate('/login')}>
+            {/* "App" opens the main ResumeAI application. The admin session is
+                preserved (never logged out or replaced), and the app recognizes
+                the admin via the admin JWT — so the admin lands on the main
+                page, still authenticated as ADMIN, and can analyze resumes,
+                view history, and use the builder. */}
+            <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate('/')}>
               <i className="bi bi-arrow-left me-1"></i>App
             </button>
             <button className="btn btn-outline-danger btn-sm" onClick={handleLogout}>

@@ -113,15 +113,19 @@ class ApiService {
     }
 
     // Inject the right auth token + default Accept JSON header.
-    // Admin endpoints use the dedicated admin JWT (stored separately from the
-    // Firebase session), everything else uses the Firebase ID token.
+    // - Admin-only endpoints (users/analyses overview) use the admin JWT.
+    // - Normal app endpoints use the ADMIN JWT whenever an admin session is
+    //   active (the admin stays the admin — the backend attributes history and
+    //   saved analyses to the ADMIN account), otherwise the Firebase ID token
+    //   of the signed-in user. Admin and user identities never mix.
     const idToken = await fetchIdToken();
     const headers = new Headers(options.headers || {});
     if (useAdminToken) {
       const adminToken = localStorage.getItem('admin_token');
       if (adminToken) headers.set('Authorization', `Bearer ${adminToken}`);
-    } else if (idToken) {
-      headers.set('Authorization', `Bearer ${idToken}`);
+    } else {
+      const token = localStorage.getItem('admin_token') || idToken;
+      if (token) headers.set('Authorization', `Bearer ${token}`);
     }
     if (!headers.has('Accept')) headers.set('Accept', 'application/json');
     const nextOptions = { ...options, headers };
@@ -360,14 +364,16 @@ class ApiService {
   }
 
   async logout() {
-    // Real Firebase sign-out — terminates the auth session. Errors are NOT
-    // swallowed: if signOut fails the user is still signed in, so the caller
-    // must not pretend logout succeeded.
-    await signOut(auth);
-    // Remove legacy auth keys only — NEVER touch unrelated preferences like theme.
+    // Clear the admin session FIRST (synchronous) so a Firebase sign-out
+    // failure can never leave a stale admin token behind — the complete
+    // session must be wiped, not just the user half.
     localStorage.removeItem('admin_token');
     localStorage.removeItem('admin_email');
     this.clearCache();
+    // Real Firebase sign-out — terminates the user auth session. Errors are NOT
+    // swallowed: if signOut fails the user is still signed in, so the caller
+    // must not pretend logout succeeded.
+    await signOut(auth);
   }
 
   async getCurrentUser() {
