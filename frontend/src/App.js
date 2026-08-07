@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Routes, Route, Navigate, Link, useNavigate, useLocation } from 'react-router-dom';
 import { onAuthStateChanged } from 'firebase/auth';
 import { auth } from './firebase';
 import { useTheme } from './contexts/ThemeContext';
@@ -35,6 +35,17 @@ function App() {
   const [stats, setStats] = useState(null);
   const dropdownRef = useRef(null);
 
+  // ── Admin Mode ─────────────────────────────────────────────
+  // The admin panel keeps its own session (admin_token / admin_email in
+  // localStorage), independent of Firebase. When that session is present, the
+  // app recognizes the signed-in account as an ADMIN: an "Admin" badge shows
+  // in the topbar and profile dropdown, and the account is flagged as admin
+  // (not a regular user). App features (analyze / history / builder) still run
+  // on the authenticated Firebase account, which is what the backend
+  // authorizes (history and saved analyses are tied to the Firebase token).
+  const isAdmin = !!localStorage.getItem('admin_token');
+  const appUser = useMemo(() => (user ? { ...user, isAdmin } : null), [user, isAdmin]);
+
   // Close the profile dropdown when clicking anywhere outside of it.
   // NOTE: a plain `document.addEventListener('click', close)` breaks the
   // toggle: React 18 flushes state updates from real (trusted) click events
@@ -55,9 +66,9 @@ function App() {
 
   // Lightweight dashboard stats from saved analyses
   useEffect(() => {
-    if (!user) return;
+    if (!appUser) return;
     let cancelled = false;
-    apiService.getHistory(user.uid)
+    apiService.getHistory(appUser.uid)
       .then(data => {
         const list = Array.isArray(data) ? data : (data?.history || data?.data || []);
         if (cancelled || !Array.isArray(list)) return;
@@ -72,7 +83,7 @@ function App() {
       })
       .catch(() => {});
     return () => { cancelled = true; };
-  }, [user, analysis]);
+  }, [appUser, analysis]);
 
   // Firebase Auth listener — single source of truth for auth state.
   // The user state updates IMMEDIATELY from Firebase (no async gap), so the
@@ -176,7 +187,7 @@ function App() {
   }
 
   // Public routes for non-authenticated users (/login, /register, landing)
-  if (!user && !authLoading) {
+  if (!appUser && !authLoading) {
     return (
       <Routes>
         <Route path="/" element={<Landing onGetStarted={() => navigate('/login')} />} />
@@ -188,7 +199,7 @@ function App() {
   }
 
   // Authenticated but try to hit /login or /register — redirect to dashboard
-  if (user && !authLoading && (location.pathname === '/login' || location.pathname === '/register')) {
+  if (appUser && !authLoading && (location.pathname === '/login' || location.pathname === '/register')) {
     return <Navigate to="/" replace />;
   }
 
@@ -221,6 +232,11 @@ function App() {
               </div>
 
               <div className="app-topbar-actions">
+                {appUser?.isAdmin && (
+                  <Link to="/admin" className="admin-mode-badge" title="Signed in as admin — open Admin Panel">
+                    <i className="bi bi-shield-lock-fill me-1"></i>Admin
+                  </Link>
+                )}
                 <button className="theme-toggle-btn" onClick={toggleTheme} title="Toggle theme">
                   <i className={`bi ${theme === 'dark' ? 'bi-sun-fill text-warning' : 'bi-moon-fill text-primary'}`}></i>
                 </button>
@@ -240,10 +256,13 @@ function App() {
                           </div>
                           <div className="text-start">
                 <p className="fw-bold mb-0 small" style={{ lineHeight: '1.2' }}>
-                  {user?.full_name || user?.email?.split('@')[0] || 'User'}
+                  {appUser?.full_name || appUser?.email?.split('@')[0] || 'User'}
+                  {appUser?.isAdmin && (
+                    <span className="profile-admin-chip ms-2"><i className="bi bi-shield-fill-check me-1"></i>Admin</span>
+                  )}
                 </p>
                 <small className="text-muted" style={{ fontSize: '11px' }}>
-                  {user?.email || 'Signed in'}
+                  {appUser?.email || 'Signed in'}
                 </small>
               </div>
                         </div>
@@ -274,7 +293,7 @@ function App() {
               <>
                 <div className="dash-hero">
                   <div>
-                    <h1 className="dash-title">Welcome back, {user?.full_name || user?.email?.split('@')[0] || 'there'}</h1>
+                    <h1 className="dash-title">Welcome back, {appUser?.full_name || appUser?.email?.split('@')[0] || 'there'}</h1>
                     <p className="dash-subtitle">Upload a resume for a full AI analysis, or continue building in the editor.</p>
                   </div>
                   <button className="btn btn-primary d-none d-md-inline-flex align-items-center" onClick={() => setAppTab('builder')}>
@@ -368,7 +387,7 @@ function App() {
               {appTab === 'history' && (
                 <HistoryPanel onLoadAnalysis={(entry, text, role, file) => {
                   onAnalysisComplete(entry, text, role, file);
-                }} userId={user?.uid || 'anonymous'} />
+                }} userId={appUser?.uid || 'anonymous'} />
               )}
 
               {appTab === 'builder' && (
