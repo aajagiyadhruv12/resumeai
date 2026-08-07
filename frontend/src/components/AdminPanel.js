@@ -158,7 +158,7 @@ const AdminPanel = () => {
             </button>
           </form>
 
-          <button className="btn btn-link text-muted mt-3" onClick={() => navigate('/')}>
+          <button className="btn btn-link text-muted mt-3" onClick={() => navigate('/login')}>
             <i className="bi bi-arrow-left me-1"></i>Back to app
           </button>
         </div>
@@ -179,7 +179,11 @@ const AdminPanel = () => {
             <span className="admin-email-badge">
               <i className="bi bi-person-fill me-1"></i>{adminEmail}
             </span>
-            <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate('/')}>
+            {/* "App" jumps straight to the app login (/login). If the visitor is
+                already signed into the app, App.js auto-redirects /login to the
+                dashboard, so this lands on the main page either way — no more
+                being dumped on the marketing/landing page. */}
+            <button className="btn btn-outline-secondary btn-sm" onClick={() => navigate('/login')}>
               <i className="bi bi-arrow-left me-1"></i>App
             </button>
             <button className="btn btn-outline-danger btn-sm" onClick={handleLogout}>
