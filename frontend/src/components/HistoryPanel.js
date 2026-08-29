@@ -24,6 +24,8 @@ const HistoryPanel = ({ onLoadAnalysis, userId = '' }) => {
       const msg = err.message || '';
       if (msg.includes('Failed to fetch') || msg.includes('NetworkError') || msg.includes('ERR_CONNECTION_REFUSED')) {
         setError('Backend is offline. Please start the backend server and refresh.');
+      } else if (msg.includes('Unauthorized') || msg.includes('401')) {
+        setError('Session expired. Please sign in again to view your history.');
       } else {
         setError(`Failed to load history: ${msg}`);
       }
@@ -43,7 +45,12 @@ const HistoryPanel = ({ onLoadAnalysis, userId = '' }) => {
       await apiService.deleteHistory(docId);
       setHistory(prev => prev.filter(h => h.id !== docId));
     } catch (err) {
-      setError('Failed to delete entry.');
+      const msg = err.message || '';
+      if (msg.includes('Unauthorized') || msg.includes('401')) {
+        setError('Session expired. Please sign in again.');
+      } else {
+        setError('Failed to delete entry.');
+      }
     } finally {
       setDeletingId(null);
     }
