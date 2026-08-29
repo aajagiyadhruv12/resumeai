@@ -1,5 +1,6 @@
 import firebase_admin
 from firebase_admin import credentials, firestore, storage
+from google.cloud.firestore_v1 import FieldFilter
 from config.settings import Config
 import logging
 
@@ -67,7 +68,7 @@ class FirebaseService:
     def get_history(self, user_id):
         if not self.db: return []
         docs = self.db.collection('analyses')\
-            .where('user_id', '==', user_id)\
+            .where(filter=FieldFilter('user_id', '==', user_id))\
             .order_by('timestamp', direction=firestore.Query.DESCENDING)\
             .stream()
         results = []

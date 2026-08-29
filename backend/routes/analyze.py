@@ -39,11 +39,17 @@ def _set_cached_result(cache_key, result):
 @analyze_bp.route('/status', methods=['GET'])
 def ai_status():
     """Report which AI providers are configured (no secrets) — for debugging deployments."""
+    import firebase_admin
     return jsonify({
         "gemini_configured": ai_service._gemini_ready,
         "openai_configured": ai_service._openai_ready,
         "sambanova_configured": ai_service._sambanova_ready,
-        "version": "2026-07-24"
+        # Firebase Admin state — when False, history/registration degrade
+        # (token verification still works via Google's public certs).
+        "firebase_admin_initialized": bool(firebase_admin._apps),
+        "firestore_ready": firebase_service.db is not None,
+        "storage_ready": firebase_service.bucket is not None,
+        "version": "2026-08-29"
     }), 200
 
 

@@ -1,5 +1,5 @@
 import { auth } from '../firebase';
-import { signInWithEmailAndPassword, signOut, getIdToken } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut, getIdToken } from 'firebase/auth';
 
 const API_URL = process.env.REACT_APP_API_URL || "https://resumeai-fj7h.onrender.com/api";
 
@@ -350,17 +350,61 @@ class ApiService {
       e.details = { confirmPassword: 'Passwords do not match.' };
       throw e;
     }
+    const cleanEmail = (email || '').trim();
+    const cleanName = (fullName || '').trim();
+    if (!cleanName) {
+      const e = new Error('Full name is required.');
+      e.details = { fullName: 'Full name is required.' };
+      throw e;
+    }
+    if (!cleanEmail || !password) throw new Error('Email and password are required.');
+    if (password.length < 6) throw new Error('Password must be at least 6 characters long.');
+
+    // Primary path: backend creates the Firebase user via the Admin SDK.
     await wakeUpBackend();
-    return this._handleFetch(`${API_URL}/auth/register`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        full_name: fullName,
-        email: (email || '').trim(),
-        password,
-        confirm_password: confirmPassword ?? password,
-      }),
-    }, 30000, false);
+    try {
+      return await this._handleFetch(`${API_URL}/auth/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          full_name: cleanName,
+          email: cleanEmail,
+          password,
+          confirm_password: confirmPassword ?? password,
+        }),
+      }, 30000, false);
+    } catch (backendErr) {
+      // Only fall back when the backend could not do the job at all
+      // (Firebase Admin not configured -> 503, server unreachable, 5xx).
+      // Real validation errors (400 / 409 duplicate email) surface as-is.
+      const msg = String(backendErr?.message || '');
+      const canFallback =
+        msg.includes('not configured') ||
+        msg.includes('Could not reach the server') ||
+        msg.includes('waking up') ||
+        msg.includes('timed out') ||
+        msg.includes('Registration failed') ||
+        msg.includes('Internal server error');
+      if (!canFallback) throw backendErr;
+    }
+
+    // Fallback path: create the account directly with the Firebase client SDK.
+    // This does not depend on server-side credentials, so sign-up keeps
+    // working even when the backend's Firebase Admin env vars are missing.
+    let cred;
+    try {
+      cred = await createUserWithEmailAndPassword(auth, cleanEmail, password);
+      if (cleanName) {
+        await updateProfile(cred.user, { displayName: cleanName }).catch(() => {});
+      }
+    } catch (err) {
+      throw friendlyAuthError(err);
+    }
+    const profile = { uid: cred.user.uid, email: cred.user.email || cleanEmail, full_name: cleanName };
+    // Match the backend flow: registration does not sign the user in — they
+    // are sent to the login page to sign in explicitly.
+    await signOut(auth).catch(() => {});
+    return profile;
   }
 
   async logout() {
