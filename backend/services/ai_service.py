@@ -173,79 +173,418 @@ class AIService:
         if not self._gemini_ready and not self._openai_ready and not self._sambanova_ready:
             return self._fallback_analysis("AI service is not configured. Please contact the administrator.")
 
-        # Cap oversized inputs. A huge prompt (e.g. a 80KB+ pasted/PDF-extracted
-        # document) makes the model generate for minutes and produces a massive
-        # JSON response — enough to exhaust the small free-tier instance's
-        # memory mid-request, killing the worker so the browser sees a bare 500
-        # with no CORS headers (misreported as a CORS error). 20K chars is far
-        # beyond any real resume while keeping analyses fast and complete.
+        # Cap oversized inputs to prevent memory issues
         resume_text = (resume_text or "")[:20000]
+        
+        if len(resume_text.strip()) < 50:
+            return self._fallback_analysis("Resume text too short for meaningful analysis. Please provide more content.")
 
         start_time = time.time()
         logging.info(f"Starting analysis for role: {target_role}")
         
-        # Use a focused prompt with the 12 most essential dimensions
-        prompt = f"""You are an expert resume analyst and ATS specialist. Analyze this resume for a {target_role} position.
+        # Enhanced prompt with detailed evaluation criteria and scoring rubric
+        prompt = f"""You are an expert resume analyst, ATS specialist, and hiring manager with 15+ years of experience. 
+Analyze this resume THOROUGHLY for a {target_role} position. Provide specific, actionable, detailed feedback.
 
-Return ONLY valid JSON with these exact keys:
-overall_score (0-100), ats_score (0-100),
-professional_summary (2-3 sentences), final_verdict (Strong Candidate/Good Fit/Needs Improvement/Not Ready),
-skills_extraction {{technical_skills: [], soft_skills: []}},
-skill_gap_analysis (array),
-experience_evaluation {{career_level, years_of_experience, impact, weak_bullets: [], suggestions: []}},
-projects_evaluation {{project_count, technical_depth, suggestions: []}},
-education_evaluation, structure_formatting,
-keyword_ats_optimization {{missing_keywords: [], suggested_keywords: []}},
-strengths (array), weaknesses (array), actionable_improvements (array),
-job_role_matching (array of {{role, match_percentage, reason}}),
-bullet_point_rewriting (array of {{old, new}}).
+EVALUATION CRITERIA:
+1. CONTENT QUALITY: Are achievements quantified? Are action verbs strong? Is there measurable impact?
+2. ATS OPTIMIZATION: Keywords matched to {target_role}? Proper formatting? Standard section headers?
+3. STRUCTURE: Logical flow? Proper section order? Consistent formatting? Clear career progression?
+4. SKILLS: Technical skills relevant and current? Soft skills demonstrated? Skill gaps identified?
+5. EXPERIENCE: Depth of experience? Progression shown? Impact quantified? Relevant to target role?
+6. PROJECTS: Technical depth? Business impact? Technologies used? Outcomes achieved?
+7. EDUCATION: Relevant to role? Certifications included? Continuous learning shown?
+8. BRANDING: Consistent message? Clear value proposition? Professional tone?
 
-RESUME:
+SCORING RUBRIC (be strict and specific):
+- overall_score: 0-100 (holistic assessment)
+  * 90-100: Outstanding - ready for senior roles, exceptional content
+  * 75-89: Strong - minor improvements needed, competitive candidate
+  * 60-74: Good - solid foundation, several improvements needed
+  * 40-59: Fair - significant improvements needed, below average
+  * 0-39: Poor - major overhaul needed, not competitive
+- ats_score: 0-100 (ATS parseability and keyword optimization)
+  * Consider: formatting, keywords, section headers, file structure
+
+Return ONLY valid JSON with these EXACT keys and detailed values:
+{{
+  "overall_score": <number 0-100>,
+  "ats_score": <number 0-100>,
+  "professional_summary": "<2-3 sentence specific assessment of candidate's profile>",
+  "final_verdict": "<Strong Candidate/Good Fit/Needs Improvement/Not Ready - with brief reason>",
+  "skills_extraction": {{
+    "technical_skills": ["<specific technology/framework/tool>", ...],
+    "soft_skills": ["<leadership/communication/problem-solving>", ...]
+  }},
+  "skill_gap_analysis": ["<specific skill missing that's critical for {target_role}>", ...],
+  "experience_evaluation": {{
+    "career_level": "<Entry Level/Junior/Mid-Level/Senior/Lead/Principal>",
+    "years_of_experience": "<estimated years or N/A>",
+    "impact": "<specific assessment of experience quality and impact>",
+    "weak_bullets": ["<specific weak bullet point and why it's weak>", ...],
+    "suggestions": ["<specific actionable suggestion to improve experience section>", ...]
+  }},
+  "projects_evaluation": {{
+    "project_count": <number or 0>,
+    "technical_depth": "<assessment of technical complexity shown>",
+    "suggestions": ["<specific suggestion to improve project descriptions>", ...]
+  }},
+  "education_evaluation": "<specific assessment of education section>",
+  "structure_formatting": "<specific feedback on resume structure, formatting, organization>",
+  "keyword_ats_optimization": {{
+    "missing_keywords": ["<specific keyword missing for {target_role}>", ...],
+    "suggested_keywords": ["<specific keyword to add>", ...]
+  }},
+  "strengths": ["<specific strength with example from resume>", ...],
+  "weaknesses": ["<specific weakness with example from resume>", ...],
+  "actionable_improvements": [
+    "<specific, actionable improvement #1 with details>",
+    "<specific, actionable improvement #2 with details>",
+    "<specific, actionable improvement #3 with details>"
+  ],
+  "job_role_matching": [
+    {{
+      "role": "<specific job title>",
+      "match_percentage": <number 0-100>,
+      "reason": "<specific reason for this match percentage>"
+    }},
+    ...
+  ],
+  "bullet_point_rewriting": [
+    {{
+      "old": "<exact weak bullet point from resume>",
+      "new": "<rewritten stronger version with action verb + task + result/metrics>"
+    }},
+    ...
+  ],
+  "recruiter_scorecard": {{
+    "overall_recommendation": "<Hire/No Hire/Maybe - specific reason>",
+    "hiring_difficulty": "<Easy/Moderate/Hard>",
+    "interview_recommendation": "<Yes/No - specific reason>",
+    "risk_indicators": ["<specific risk like employment gaps, job hopping>", ...],
+    "strengths_for_recruiter": ["<specific selling point>", ...],
+    "growth_potential": "<assessment of growth potential>"
+  }},
+  "interview_readiness": {{
+    "score": <number 0-100>,
+    "coding_challenge_likelihood": "<High/Medium/Low>",
+    "technical_areas_strong": ["<specific strong technical area>", ...],
+    "technical_areas_weak": ["<specific weak technical area>", ...],
+    "behavioral_questions_likely": ["<specific likely behavioral question>", ...]
+  }},
+  "career_trajectory": {{
+    "trend": "<Positive/Stable/Negative/Unclear>",
+    "analysis": "<specific analysis of career progression>",
+    "red_flags": ["<specific red flag if any>", ...],
+    "recommended_next_role": "<specific recommended next career move>"
+  }},
+  "competitive_analysis": {{
+    "market_position": "<assessment of how candidate compares to market>",
+    "unique_value_proposition": "<what makes this candidate unique>",
+    "differentiation_opportunities": ["<specific way to stand out>", ...]
+  }},
+  "resume_brand_assessment": {{
+    "consistent_message": <true/false>,
+    "career_narrative": "<assessment of career story coherence>",
+    "brand_gaps": ["<specific gap in personal brand>", ...]
+  }},
+  "specificity_analysis": {{
+    "score": <number 0-100>,
+    "vague_statements": ["<specific vague statement that needs quantification>", ...],
+    "specific_alternatives": ["<specific example of how to make it concrete>", ...]
+  }},
+  "quantified_achievements": {{
+    "score": <number 0-100>,
+    "analysis": "<assessment of quantification quality>",
+    "issues": ["<specific issue with metrics>", ...],
+    "examples_of_good_quantification": ["<example from resume if any>", ...]
+  }},
+  "action_verbs_analysis": {{
+    "score": <number 0-100>,
+    "strong_verbs": ["<example of strong action verb used>", ...],
+    "weak_verbs": ["<example of weak verb to replace>", ...],
+    "suggestions": ["<specific verb suggestion>", ...]
+  }},
+  "leadership_indicators": {{
+    "score": <number 0-100>,
+    "detected": ["<specific leadership example from resume>", ...],
+    "missing": ["<specific leadership aspect missing>", ...]
+  }},
+  "contact_info_check": {{
+    "complete": <true/false>,
+    "missing": ["<missing contact info like LinkedIn, portfolio, etc.>", ...],
+    "issues": ["<specific contact info issue>", ...]
+  }},
+  "resume_length_analysis": {{
+    "current_length": "<estimated pages or characters>",
+    "status": "<Too Long/Too Short/Optimal>",
+    "recommendations": ["<specific recommendation on length>", ...]
+  }},
+  "section_organization": {{
+    "score": <number 0-100>,
+    "issues": ["<specific organizational issue>", ...],
+    "recommended_order": ["<recommended section order>", ...]
+  }},
+  "keyword_density_analysis": {{
+    "top_keywords": ["<most frequent keyword>", ...],
+    "overused_keywords": ["<keyword used too much>", ...],
+    "missing_industry_terms": ["<industry term not included>", ...]
+  }},
+  "industry_keywords": {{
+    "score": <number 0-100>,
+    "detected": ["<industry keyword present>", ...],
+    "missing": ["<industry keyword missing>", ...]
+  }},
+  "remote_readiness": {{
+    "score": <number 0-100>,
+    "indicators": ["<remote-work relevant skill or experience>", ...],
+    "missing_remote_skills": ["<remote work skill missing>", ...]
+  }},
+  "communication_skills": {{
+    "score": <number 0-100>,
+    "indicators": ["<example of good communication>", ...],
+    "weaknesses": ["<communication weakness>", ...]
+  }},
+  "impact_and_results": {{
+    "score": <number 0-100>,
+    "strong_impact_statements": ["<example of strong impact statement>", ...],
+    "weak_impact_statements": ["<example needing improvement>", ...]
+  }},
+  "ats_formatting_check": {{
+    "score": <number 0-100>,
+    "issues": ["<specific ATS formatting issue>", ...],
+    "recommendations": ["<specific ATS formatting fix>", ...]
+  }},
+  "problem_solving_evidence": {{
+    "score": <number 0-100>,
+    "examples_found": ["<example of problem-solving>", ...],
+    "missing_patterns": ["<problem-solving pattern missing>", ...]
+  }},
+  "enhanced_projects": {{
+    "project_improvements": [{{ "project_name": "<name>", "current_description": "<text>", "improved_description": "<better version>" }}, ...],
+    "project_suggestions": [{{ "suggested_project": "<idea>", "tech_stack": "<technologies>", "impact": "<expected impact>" }}, ...]
+  }}
+}}
+
+RESUME TO ANALYZE:
 {resume_text}
+
+IMPORTANT INSTRUCTIONS:
+- Be SPECIFIC and ACTIONABLE in all feedback
+- Reference EXACT examples from the resume
+- Provide CONSTRUCTIVE criticism with solutions
+- Score HONESTLY based on the rubric above
+- Consider the target role: {target_role}
+- Focus on what will make this candidate COMPETITIVE in today's market
+- Identify both STRENGTHS and WEAKNESSES honestly
+- All arrays should have SPECIFIC items, not generic advice
+- If something is missing entirely, note it as a gap
+- Provide VALUE-ADDED insights beyond basic checklist items
 """
         try:
+            # Try with Gemini first (better for detailed analysis)
             text = self._call_gemini(prompt, is_json=True)
             result = self._parse_json(text)
             logging.info(f"Analysis completed in {time.time() - start_time:.2f} seconds")
             return result
         except Exception as e:
-            logging.warning(f"Full analysis failed, trying simpler prompt: {e}")
-            # Retry with a much simpler prompt
+            logging.warning(f"Gemini analysis failed, trying OpenAI: {e}")
+            # Try OpenAI as fallback (GPT-4 is excellent for resume analysis)
             try:
-                simple_prompt = f"""Analyze this resume for {target_role}. Return JSON with: overall_score, ats_score, professional_summary, final_verdict, skills_extraction (technical_skills, soft_skills), skill_gap_analysis, experience_evaluation, projects_evaluation, education_evaluation, strengths, weaknesses, actionable_improvements, keyword_ats_optimization (missing_keywords, suggested_keywords).
+                if self._openai_ready:
+                    text = self._call_openai(prompt, is_json=True)
+                    result = self._parse_json(text)
+                    logging.info(f"OpenAI analysis completed in {time.time() - start_time:.2f}s")
+                    return result
+            except Exception as openai_err:
+                logging.warning(f"OpenAI also failed: {openai_err}")
+            
+            # Last attempt with simplified prompt
+            logging.warning(f"Trying simplified prompt after failures")
+            try:
+                simple_prompt = f"""Analyze this resume for a {target_role} position. Be specific and detailed.
+
+Return JSON with these keys: overall_score (0-100), ats_score (0-100), professional_summary, final_verdict, 
+skills_extraction (technical_skills, soft_skills), skill_gap_analysis, experience_evaluation (career_level, years_of_experience, impact, weak_bullets, suggestions), 
+projects_evaluation (project_count, technical_depth, suggestions), education_evaluation, structure_formatting, 
+keyword_ats_optimization (missing_keywords, suggested_keywords), strengths, weaknesses, actionable_improvements, 
+job_role_matching (array of {{role, match_percentage, reason}}),
+bullet_point_rewriting (array of {{old, new}}).
+
+Be specific, reference exact examples, and provide actionable feedback.
 
 RESUME:
-{resume_text[:4000]}
+{resume_text[:8000]}
 """
                 text = self._call_gemini(simple_prompt, is_json=True)
                 result = self._parse_json(text)
-                logging.info(f"Analysis succeeded with simpler prompt in {time.time() - start_time:.2f}s")
+                logging.info(f"Simplified analysis succeeded in {time.time() - start_time:.2f}s")
                 return result
             except Exception as e2:
-                logging.error(f"Analysis failed completely after {time.time() - start_time:.2f}s: {e2}")
+                logging.error(f"All analysis attempts failed after {time.time() - start_time:.2f}s: {e2}")
                 return self._fallback_analysis("AI analysis encountered an issue. Basic scores shown. Please try again.")
 
     def _fallback_analysis(self, warning):
-        """Graceful degraded analysis returned instead of an error (prevents 422s for end users)."""
+        """Graceful degraded analysis returned instead of an error (prevents 422s for end users).
+        Provides basic template with guidance on what to look for."""
         return {
-            "overall_score": 60,
-            "ats_score": 55,
-            "professional_summary": "Analysis temporarily unavailable. Please try again.",
-            "final_verdict": "Needs Review",
+            "overall_score": 50,
+            "ats_score": 50,
+            "professional_summary": "AI analysis is temporarily unavailable. Please review your resume manually using these guidelines: (1) Ensure your resume has a clear professional summary (2-3 sentences). (2) Use strong action verbs: Led, Built, Developed, Created, Implemented, Optimized. (3) Quantify achievements with metrics: increased X by Y%, saved $Z, reduced time by N%. (4) Include relevant keywords for your target role throughout. (5) Structure: Contact Info, Summary, Skills, Experience, Projects, Education. (6) Use bullet points (not paragraphs) for experience and projects. (7) Keep it to 1-2 pages maximum. (8) Proofread carefully for typos and inconsistencies. (9) Add links: LinkedIn, GitHub, portfolio website if applicable. (10) Tailor your resume for each specific job application.",
+            "final_verdict": "Manual Review Required",
             "skills_extraction": {"technical_skills": [], "soft_skills": []},
-            "skill_gap_analysis": [],
-            "experience_evaluation": {"career_level": "N/A", "years_of_experience": "N/A", "impact": "Unable to analyze at this time.", "weak_bullets": [], "suggestions": []},
-            "projects_evaluation": {"project_count": 0, "technical_depth": "N/A", "suggestions": []},
-            "education_evaluation": "Unable to analyze at this time.",
-            "structure_formatting": "Unable to analyze at this time.",
-            "keyword_ats_optimization": {"missing_keywords": [], "suggested_keywords": []},
+            "skill_gap_analysis": ["AI analysis unavailable - manually identify skills missing for your target role"],
+            "experience_evaluation": {
+                "career_level": "Review Required",
+                "years_of_experience": "Review Required",
+                "impact": "Review your experience bullets - do they show measurable impact with numbers?",
+                "weak_bullets": [],
+                "suggestions": [
+                    "Start each bullet with a strong action verb",
+                    "Include metrics: numbers, percentages, dollar amounts",
+                    "Focus on results and impact, not just responsibilities",
+                    "Use the formula: Action Verb + Task + Result/Metric",
+                    "Remove outdated or irrelevant experience"
+                ]
+            },
+            "projects_evaluation": {
+                "project_count": 0,
+                "technical_depth": "Review Required",
+                "suggestions": [
+                    "Include project name, tech stack, your role, and impact",
+                    "Add links to GitHub or live demos if available",
+                    "Describe the problem solved and business value",
+                    "Highlight technical challenges and how you solved them"
+                ]
+            },
+            "education_evaluation": "Include degree, institution, graduation year, and relevant coursework or honors",
+            "structure_formatting": "Use clean, professional formatting with consistent fonts, bullet points, and white space",
+            "keyword_ats_optimization": {
+                "missing_keywords": ["Add keywords from the job description you're targeting"],
+                "suggested_keywords": ["Research job postings for your target role to identify key skills and keywords"]
+            },
             "strengths": [],
-            "weaknesses": [],
-            "actionable_improvements": ["Please re-submit your resume for analysis."],
+            "weaknesses": ["AI analysis unavailable"],
+            "actionable_improvements": [
+                "Review and rewrite your professional summary to be specific and compelling",
+                "Add metrics and numbers to all experience bullets where possible",
+                "Include relevant technical skills and tools for your target role",
+                "Remove any irrelevant or outdated information",
+                "Proofread carefully or ask someone else to review",
+                "Save as PDF with a professional filename: FirstName_LastName_Resume.pdf",
+                "Customize your resume for each application using keywords from the job posting"
+            ],
             "job_role_matching": [],
             "bullet_point_rewriting": [],
             "error": None,
-            "warning": warning
+            "warning": warning,
+            "recruiter_scorecard": {
+                "overall_recommendation": "Manual Review Needed",
+                "hiring_difficulty": "Unknown",
+                "interview_recommendation": "Unknown",
+                "risk_indicators": [],
+                "strengths_for_recruiter": [],
+                "growth_potential": "Unknown"
+            },
+            "interview_readiness": {
+                "score": 50,
+                "coding_challenge_likelihood": "Unknown",
+                "technical_areas_strong": [],
+                "technical_areas_weak": [],
+                "behavioral_questions_likely": ["Prepare for common behavioral questions using STAR method"]
+            },
+            "career_trajectory": {
+                "trend": "Unknown",
+                "analysis": "Review your career progression - are you moving upward?",
+                "red_flags": [],
+                "recommended_next_role": "Based on your current experience level"
+            },
+            "competitive_analysis": {
+                "market_position": "Unknown",
+                "unique_value_proposition": "Identify what makes you unique compared to other candidates",
+                "differentiation_opportunities": ["Highlight unique skills, projects, or achievements that set you apart"]
+            },
+            "resume_brand_assessment": {
+                "consistent_message": False,
+                "career_narrative": "Ensure your resume tells a coherent career story",
+                "brand_gaps": ["Review for consistency in messaging across all sections"]
+            },
+            "specificity_analysis": {
+                "score": 50,
+                "vague_statements": [],
+                "specific_alternatives": ["Replace vague statements with specific, quantified achievements"]
+            },
+            "quantified_achievements": {
+                "score": 50,
+                "analysis": "Add numbers, percentages, and metrics to show impact",
+                "issues": ["Many bullets may lack quantification - add numbers where possible"],
+                "examples_of_good_quantification": []
+            },
+            "action_verbs_analysis": {
+                "score": 50,
+                "strong_verbs": [],
+                "weak_verbs": [],
+                "suggestions": ["Use strong action verbs: Led, Built, Developed, Created, Implemented, Optimized, Improved, Increased, Reduced, Delivered"]
+            },
+            "leadership_indicators": {
+                "score": 50,
+                "detected": [],
+                "missing": ["Highlight any leadership experience: mentoring, leading teams, initiatives launched"],
+            },
+            "contact_info_check": {
+                "complete": False,
+                "missing": ["Ensure you have: email, phone, LinkedIn URL, location (city, state)"],
+                "issues": []
+            },
+            "resume_length_analysis": {
+                "current_length": "Unknown",
+                "status": "Review Required",
+                "recommendations": ["Keep resume to 1 page if <10 years experience, 2 pages if more experienced"]
+            },
+            "section_organization": {
+                "score": 50,
+                "issues": [],
+                "recommended_order": ["Contact Info, Professional Summary, Skills, Experience, Projects, Education, Certifications"]
+            },
+            "keyword_density_analysis": {
+                "top_keywords": [],
+                "overused_keywords": [],
+                "missing_industry_terms": ["Research industry-specific terminology for your field"]
+            },
+            "industry_keywords": {
+                "score": 50,
+                "detected": [],
+                "missing": ["Include industry-specific keywords and terminology"],
+            },
+            "remote_readiness": {
+                "score": 50,
+                "indicators": [],
+                "missing_remote_skills": ["If applying for remote roles, highlight: self-motivation, communication tools, async collaboration"]
+            },
+            "communication_skills": {
+                "score": 50,
+                "indicators": [],
+                "weaknesses": ["Ensure clear, professional communication throughout resume"]
+            },
+            "impact_and_results": {
+                "score": 50,
+                "strong_impact_statements": [],
+                "weak_impact_statements": ["Focus on results and outcomes, not just responsibilities"]
+            },
+            "ats_formatting_check": {
+                "score": 50,
+                "issues": ["Avoid: tables, columns, graphics, images, headers/footers, text boxes"],
+                "recommendations": ["Use simple formatting: standard fonts, bullet points, clear section headers"]
+            },
+            "problem_solving_evidence": {
+                "score": 50,
+                "examples_found": [],
+                "missing_patterns": ["Include examples of problems you solved and the impact of your solutions"]
+            },
+            "enhanced_projects": {
+                "project_improvements": [],
+                "project_suggestions": []
+            }
         }
 
     def generate_improved_resume(self, resume_text, analysis, target_role="Software Engineer"):
