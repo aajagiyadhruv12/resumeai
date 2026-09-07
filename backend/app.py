@@ -15,9 +15,9 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 # CORS configuration — one source of truth shared by flask-cors and the
 # explicit preflight handler below, so the two can never drift apart.
 ALLOWED_ORIGINS = [
-    "https://airesumer.qzz.io",      # production frontend
-    "http://localhost:3000",          # local dev
-    "https://resumeai-fj7h.onrender.com",  # backend itself (health checks)
+    "https://airesumer.qzz.io",       # production frontend
+    "http://localhost:3000",           # local dev
+    "https://resumeai-fj7h.onrender.com",  # Render preview URL (also a valid origin)
 ]
 ALLOWED_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 ALLOWED_HEADERS = ["Content-Type", "Authorization", "X-Requested-With", "Accept"]
@@ -36,28 +36,26 @@ def create_app():
             "origins": ALLOWED_ORIGINS,
             "methods": ALLOWED_METHODS,
             "allow_headers": ALLOWED_HEADERS,
-            "supports_credentials": False
+            "supports_credentials": False,
+            "expose_headers": ["Content-Type", "Authorization"],
         }
-    })
+    }, supports_credentials=False)
 
     # Answer browser CORS preflight (OPTIONS) requests BEFORE routing.
-    # Without this, a preflight to a missing/unauthorized route returns
-    # 404/405 and the browser blocks the real request with a misleading CORS
-    # error (which the frontend then misreports as a server cold start).
-    # Returning 204 here guarantees every preflight succeeds; actual admin
-    # authentication is STILL enforced on the real GET/POST requests.
+    # This handles preflight requests for all routes, ensuring browsers can
+    # make cross-origin requests from allowed origins.
     @app.before_request
     def handle_preflight():
         if request.method == 'OPTIONS':
             origin = request.headers.get('Origin', '')
-            resp = make_response('', 204)
             if origin in ALLOWED_ORIGINS:
+                resp = make_response('', 204)
                 resp.headers['Access-Control-Allow-Origin'] = origin
                 resp.headers['Vary'] = 'Origin'
                 resp.headers['Access-Control-Allow-Methods'] = ', '.join(ALLOWED_METHODS)
                 resp.headers['Access-Control-Allow-Headers'] = ', '.join(ALLOWED_HEADERS)
                 resp.headers['Access-Control-Max-Age'] = '86400'
-            return resp
+                return resp
         return None
 
     # Belt-and-braces: force the CORS header onto EVERY app-level response
