@@ -2,8 +2,10 @@ name: Keep Render backend awake
 
 on:
   schedule:
-    # Every 10 minutes — Render free tier sleeps after 15 minutes of inactivity
-    - cron: "*/10 * * * *"
+    # Every 5 minutes (GitHub's minimum interval) — Render free tier sleeps
+    # after 15 minutes of inactivity, and scheduled jobs can be delayed by
+    # several minutes, so ping twice as often as the sleep window demands.
+    - cron: "*/5 * * * *"
   workflow_dispatch:
 
 jobs:

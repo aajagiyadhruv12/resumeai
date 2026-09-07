@@ -12,6 +12,10 @@ analyze_bp = Blueprint('analyze', __name__)
 # Format: {cache_key: {"result": data, "timestamp": time}}
 analysis_cache = {}
 CACHE_TTL = 3600  # 1 hour
+# Bound the cache size: each entry can be a large JSON document, and an
+# unbounded cache on a small free-tier instance is a memory leak waiting to
+# happen (worker OOM -> bare 500 with no CORS headers in the browser).
+MAX_CACHE_ENTRIES = 50
 
 def _get_cache_key(resume_text, target_role):
     """Generate a cache key from the FULL resume text and target role.
@@ -33,8 +37,11 @@ def _get_cached_result(cache_key):
     return None
 
 def _set_cached_result(cache_key, result):
-    """Cache the result."""
+    """Cache the result, evicting the oldest entry when the cache is full."""
     analysis_cache[cache_key] = {"result": result, "timestamp": time.time()}
+    while len(analysis_cache) > MAX_CACHE_ENTRIES:
+        # dicts preserve insertion order, so the first key is the oldest
+        analysis_cache.pop(next(iter(analysis_cache)))
 
 @analyze_bp.route('/status', methods=['GET'])
 def ai_status():

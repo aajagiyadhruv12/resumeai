@@ -132,12 +132,16 @@ class ApiService {
 
     // Render's free tier sleeps after ~15 min of inactivity, so the first
     // request after a sleep can fail with 502/503/504/522, a network error, or
-    // a timeout while the instance boots. Retry those with a short backoff
-    // (2s, 4s, 6s) per the deployment guidance. Real HTTP errors (401/403/
-    // 404/500/...) are NEVER retried or masked — they surface immediately with
-    // the backend's actual message.
-    const MAX_ATTEMPTS = 4;
-    const RETRY_DELAYS_MS = [2000, 4000, 6000];
+    // a timeout while the instance boots. A Python cold boot typically takes
+    // 30-60s (sometimes more), so the retry budget grows past that (3s, 6s,
+    // 10s, 15s, 20s = ~54s of backoff) instead of giving up after ~12s.
+    // While the instance is asleep, Render's proxy answers with a boot code
+    // that carries NO CORS headers, which browsers misreport as a CORS
+    // policy error — retrying is what actually gets the request through.
+    // Real HTTP errors (401/403/404/500/...) are NEVER retried or masked —
+    // they surface immediately with the backend's actual message.
+    const MAX_ATTEMPTS = 6;
+    const RETRY_DELAYS_MS = [3000, 6000, 10000, 15000, 20000];
     let lastError;
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
       const controller = new AbortController();

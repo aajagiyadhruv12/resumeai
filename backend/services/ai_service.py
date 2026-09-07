@@ -173,6 +173,14 @@ class AIService:
         if not self._gemini_ready and not self._openai_ready and not self._sambanova_ready:
             return self._fallback_analysis("AI service is not configured. Please contact the administrator.")
 
+        # Cap oversized inputs. A huge prompt (e.g. a 80KB+ pasted/PDF-extracted
+        # document) makes the model generate for minutes and produces a massive
+        # JSON response — enough to exhaust the small free-tier instance's
+        # memory mid-request, killing the worker so the browser sees a bare 500
+        # with no CORS headers (misreported as a CORS error). 20K chars is far
+        # beyond any real resume while keeping analyses fast and complete.
+        resume_text = (resume_text or "")[:20000]
+
         start_time = time.time()
         logging.info(f"Starting analysis for role: {target_role}")
         
@@ -241,6 +249,8 @@ RESUME:
         }
 
     def generate_improved_resume(self, resume_text, analysis, target_role="Software Engineer"):
+        # Same cap as analyze_resume — keep AI generation fast and memory-safe.
+        resume_text = (resume_text or "")[:20000]
         weaknesses = analysis.get('weaknesses', [])
         missing_skills = analysis.get('skill_gap_analysis', [])
         missing_keywords = analysis.get('keyword_ats_optimization', {}).get('missing_keywords', [])

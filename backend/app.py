@@ -59,6 +59,19 @@ def create_app():
                 resp.headers['Access-Control-Max-Age'] = '86400'
             return resp
         return None
+
+    # Belt-and-braces: force the CORS header onto EVERY app-level response
+    # (including error-handler 500s, 404/405 responses, etc.) for allowed
+    # origins. flask-cors normally adds this via its after_request hook, but
+    # this guarantees no response the app itself produces can ever be
+    # misreported by the browser as a "CORS policy" error.
+    @app.after_request
+    def add_cors_headers(resp):
+        origin = request.headers.get('Origin', '')
+        if origin in ALLOWED_ORIGINS:
+            resp.headers['Access-Control-Allow-Origin'] = origin
+            resp.headers['Vary'] = 'Origin'
+        return resp
     
     # Register Blueprints
     app.register_blueprint(analyze_bp, url_prefix='/api')
