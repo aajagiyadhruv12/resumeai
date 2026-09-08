@@ -66,27 +66,37 @@ def _require_admin():
     """
     auth_header = request.headers.get('Authorization', '')
     if not auth_header.startswith('Bearer '):
-        return None, (jsonify({'error': 'Unauthorized'}), 401)
+        from flask import make_response
+        resp = make_response(jsonify({'error': 'Unauthorized'}), 401)
+        return None, (resp, 401)
 
     token = auth_header[len('Bearer '):].strip()
     if not token:
-        return None, (jsonify({'error': 'Unauthorized'}), 401)
+        from flask import make_response
+        resp = make_response(jsonify({'error': 'Unauthorized'}), 401)
+        return None, (resp, 401)
 
     try:
         payload = jwt.decode(token, ADMIN_JWT_SECRET, algorithms=['HS256'])
         return payload.get('email'), None
     except jwt.ExpiredSignatureError:
-        return None, (jsonify({'error': 'Session expired. Please sign in again.'}), 401)
+        from flask import make_response
+        resp = make_response(jsonify({'error': 'Session expired. Please sign in again.'}), 401)
+        return None, (resp, 401)
     except Exception as e:
         logging.warning(f"Admin token verification failed: {e}")
-        return None, (jsonify({'error': 'Unauthorized'}), 401)
+        from flask import make_response
+        resp = make_response(jsonify({'error': 'Unauthorized'}), 401)
+        return None, (resp, 401)
 
 
 @admin_bp.route('/admin/login', methods=['POST'])
 def admin_login():
     client_ip = _client_ip()
     if _login_rate_limited(client_ip):
-        return jsonify({'error': 'Too many login attempts. Please wait 15 minutes and try again.'}), 429
+        from flask import make_response
+        resp = make_response(jsonify({'error': 'Too many login attempts. Please wait 15 minutes and try again.'}), 429)
+        return resp
 
     try:
         data = request.get_json(silent=True) or {}
@@ -97,7 +107,9 @@ def admin_login():
         valid_user = (email == ADMIN_EMAIL or username == ADMIN_USERNAME)
         if not valid_user or password != ADMIN_PASSWORD:
             _record_login_failure(client_ip)
-            return jsonify({'error': 'Invalid username or password'}), 401
+            from flask import make_response
+            resp = make_response(jsonify({'error': 'Invalid username or password'}), 401)
+            return resp
 
         _clear_login_attempts(client_ip)
         token = jwt.encode({
@@ -106,11 +118,15 @@ def admin_login():
         }, ADMIN_JWT_SECRET, algorithm='HS256')
 
         logging.info(f'Admin login successful: {email}')
-        return jsonify({'token': token, 'email': email}), 200
+        from flask import make_response
+        resp = make_response(jsonify({'token': token, 'email': email}), 200)
+        return resp
 
     except Exception as e:
         logging.error(f'Admin login error: {e}')
-        return jsonify({'error': 'Login failed'}), 500
+        from flask import make_response
+        resp = make_response(jsonify({'error': 'Login failed'}), 500)
+        return resp
 
 
 @admin_bp.route('/admin/users', methods=['GET'])
@@ -154,7 +170,9 @@ def admin_users():
     result.sort(key=lambda x: x['count'], reverse=True)
 
     logging.info(f"Admin {admin_email} fetched user overview ({len(result)} users)")
-    return jsonify({'users': result}), 200
+    from flask import make_response
+    resp = make_response(jsonify({'users': result}), 200)
+    return resp
 
 
 @admin_bp.route('/admin/analyses', methods=['GET'])
@@ -166,4 +184,6 @@ def admin_analyses():
 
     analyses = firebase_service.get_all_analyses()
     logging.info(f"Admin {admin_email} fetched all analyses ({len(analyses)} docs)")
-    return jsonify({'analyses': analyses}), 200
+    from flask import make_response
+    resp = make_response(jsonify({'analyses': analyses}), 200)
+    return resp

@@ -204,16 +204,24 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
   const [customImprovements, setCustomImprovements] = useState('');
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState('analysis');
+  const [generationWarning, setGenerationWarning] = useState('');
+
+  // A non-empty warning/error on the analysis payload means the AI providers
+  // could not produce a real report (quota/billing/config). Show it loudly so
+  // a 0/100 placeholder is never mistaken for a genuine low score.
+  const unavailableMessage = (analysis && (analysis.warning || analysis.error)) || null;
 
   if (!analysis) return null;
 
   const handleGenerate = async () => {
     setGenerating(true); 
     setError(null);
+    setGenerationWarning('');
     try { 
       const result = await apiService.generateResume(resumeText, analysis, targetRole); 
       if (result && result.generated_resume) {
         setGeneratedResume(result.generated_resume); 
+        setGenerationWarning(result.warning || '');
         setActiveTab('generated'); 
       } else {
         throw new Error('No resume content was generated. Please try again.');
@@ -452,6 +460,19 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
         {/* ── ANALYSIS TAB ── */}
         {activeTab === 'analysis' && (
           <div>
+            {unavailableMessage && (
+              <div className="alert alert-warning shadow-sm border-0 d-flex align-items-start" role="alert" style={{ borderRadius: '14px' }}>
+                <i className="bi bi-exclamation-triangle-fill fs-4 me-3 mt-1"></i>
+                <div>
+                  <h5 className="mb-1 fw-bold">AI analysis did not complete</h5>
+                  <p className="mb-0">{unavailableMessage}</p>
+                  <small className="text-muted d-block mt-2">
+                    The scores below are placeholders (0/100) — no real analysis was produced. Once the backend AI provider has quota/credits, re-run the analysis.
+                  </small>
+                </div>
+              </div>
+            )}
+
             {/* 1. Overall Score & 2. ATS Score */}
             <div className="scores-section">
               <div className="scores-grid">
@@ -932,6 +953,16 @@ const AnalysisReport = ({ analysis, resumeText, targetRole, onAnalysisComplete, 
                 </>}
               </div>
             </div>
+
+            {generationWarning && (
+              <div className="alert alert-warning shadow-sm border-0 d-flex align-items-center mt-3" role="alert" style={{ borderRadius: '14px' }}>
+                <i className="bi bi-exclamation-triangle-fill fs-4 me-3"></i>
+                <div>
+                  <h6 className="mb-0 fw-bold">AI enhancement was unavailable</h6>
+                  <p className="mb-0 small">{generationWarning}</p>
+                </div>
+              </div>
+            )}
 
             {!generatedResume ? (
               <div className="empty-state">

@@ -1,14 +1,19 @@
 import { auth } from '../firebase';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, updateProfile, signOut, getIdToken } from 'firebase/auth';
 
+// Use the configured API URL, defaulting to the production backend.
+// IMPORTANT: When deploying the frontend to a custom domain (e.g. airesumer.qzz.io),
+// set REACT_APP_API_URL in your hosting platform's env vars or .env file to:
+//   https://resumeai-fj7h.onrender.com/api
+// This ensures the frontend calls the backend, not itself.
 const API_URL = process.env.REACT_APP_API_URL || "https://resumeai-fj7h.onrender.com/api";
 
 // Wake up the backend before making real requests (Render free tier sleeps)
 const wakeUpBackend = async () => {
   try {
-    await fetch(`${API_URL.replace('/api', '')}/health`, { method: 'GET' });
+    await fetch(`${API_URL.replace('/api', '')}/health`, { method: 'GET', mode: 'no-cors' });
   } catch (e) {
-    // ignore - just a warm-up ping
+    // ignore - just a warm-up ping; if CORS blocks this, the real request will still work
   }
 };
 
@@ -176,7 +181,9 @@ class ApiService {
           error.message.includes('NetworkError') ||
           error.message.includes('Network request failed') ||
           error.message.includes('Load failed') ||
-          error.message.includes('ERR_BLOCKED_BY_CLIENT');
+          error.message.includes('ERR_BLOCKED_BY_CLIENT') ||
+          error.message.includes('CORS') ||
+          error.message.includes('Access-Control');
         const isAbort = error.name === 'AbortError';
         // Retry aborts only on short-timeout calls (admin/history at 20-60s)
         // that can hang while a Render instance cold-boots. Long-running AI

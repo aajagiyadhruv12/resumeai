@@ -14,14 +14,20 @@ def get_user_history():
         # guessing user IDs. Only the authenticated user's own data is returned.
         current_user = get_current_user()
         if not current_user:
-            return jsonify({"error": "Unauthorized"}), 401
+            from flask import make_response
+            resp = make_response(jsonify({"error": "Unauthorized"}), 401)
+            return resp
         user_id = current_user['uid']
         history = firebase_service.get_history(user_id)
         logging.info(f"Fetched history for user: {user_id}")
-        return jsonify(history), 200
+        from flask import make_response
+        resp = make_response(jsonify(history), 200)
+        return resp
     except Exception as e:
         logging.error(f"Route History Error: {e}")
-        return jsonify({"error": "Failed to fetch user history"}), 500
+        from flask import make_response
+        resp = make_response(jsonify({"error": "Failed to fetch user history"}), 500)
+        return resp
 
 
 @history_bp.route('/history/<doc_id>', methods=['DELETE'])
@@ -32,11 +38,19 @@ def delete_history(doc_id):
         # Firebase ID token, so a user cannot delete another user's records.
         current_user = get_current_user()
         if not current_user:
-            return jsonify({"error": "Unauthorized"}), 401
+            from flask import make_response
+            resp = make_response(jsonify({"error": "Unauthorized"}), 401)
+            return resp
         deleted = firebase_service.delete_analysis(doc_id, current_user['uid'])
         if not deleted:
-            return jsonify({"error": "Analysis not found or access denied"}), 404
-        return jsonify({"message": "Deleted successfully"}), 200
+            from flask import make_response
+            resp = make_response(jsonify({"error": "Analysis not found or access denied"}), 404)
+            return resp
+        from flask import make_response
+        resp = make_response(jsonify({"message": "Deleted successfully"}), 200)
+        return resp
     except Exception as e:
         logging.error(f"Route Delete History Error: {e}")
-        return jsonify({"error": "Failed to delete"}), 500
+        from flask import make_response
+        resp = make_response(jsonify({"error": "Failed to delete"}), 500)
+        return resp

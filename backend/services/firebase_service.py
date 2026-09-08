@@ -37,7 +37,28 @@ class FirebaseService:
                     return
             
             self.db = firestore.client()
-            self.bucket = storage.bucket()
+            # storage.bucket() only builds a lazy handle — it does NOT check that
+            # the bucket exists, so an unprovisioned/misnamed bucket stayed
+            # "ready" and every upload failed later with a 404 that only showed
+            # up as a null file_url. Verify once at boot so /api/status tells the
+            # truth and the log says exactly what to fix.
+            bucket = storage.bucket()
+            try:
+                if bucket.exists():
+                    self.bucket = bucket
+                else:
+                    self.bucket = None
+                    logging.error(
+                        "Firebase Storage bucket '%s' does not exist - resume files will NOT be "
+                        "stored (text extraction and analysis still work). Enable Storage in the "
+                        "Firebase console and set FIREBASE_STORAGE_BUCKET to the bucket's real name.",
+                        Config.FIREBASE_STORAGE_BUCKET,
+                    )
+            except Exception as be:
+                # A permissions/network hiccup should not disable uploads outright;
+                # keep the handle and let upload_file surface any real failure.
+                self.bucket = bucket
+                logging.warning(f"Could not verify Firebase Storage bucket: {be}")
             logging.info("Firebase Service Initialized Successfully")
         except Exception as e:
             logging.error(f"Firebase Initialization Error: {e}")

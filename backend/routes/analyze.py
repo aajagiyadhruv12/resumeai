@@ -73,6 +73,11 @@ def analyze():
 
     try:
         data = request.json
+        if not data:
+            from flask import make_response
+            resp = make_response(jsonify({"error": "Invalid JSON payload"}), 400)
+            return resp
+        
         resume_text = data.get('resume_text')
         target_role = data.get('target_role', 'Software Engineer')
         # Derive user_id from AUTHENTICATED TOKEN when present — NEVER trust frontend user_id
@@ -83,7 +88,9 @@ def analyze():
         use_cache = data.get('use_cache', True)  # Cache by default
 
         if not resume_text:
-            return jsonify({"error": "Resume text is required"}), 400
+            from flask import make_response
+            resp = make_response(jsonify({"error": "Resume text is required"}), 400)
+            return resp
 
         # Check cache first
         cache_key = _get_cache_key(resume_text, target_role)
@@ -91,15 +98,28 @@ def analyze():
             cached_result = _get_cached_result(cache_key)
             if cached_result:
                 logging.info(f"Returning cached analysis for key: {cache_key[:8]}...")
-                return jsonify(cached_result), 200
+                from flask import make_response
+                resp = make_response(jsonify(cached_result), 200)
+                return resp
 
         analysis_result = ai_service.analyze_resume(resume_text, target_role)
-        # Never fail the request over a degraded result — surface it as a warning
-        if analysis_result.get("error"):
-            analysis_result["warning"] = str(analysis_result.pop("error"))
-            analysis_result["error"] = None
 
-        # Cache the successful result
+        # Check if the result indicates AI failure (degraded response).
+        # These must NOT be returned as HTTP 200 — they get HTTP 503 instead.
+        degraded = bool(analysis_result.get("error")) or bool(analysis_result.get("warning"))
+        if degraded:
+            reason = analysis_result.get("error") or analysis_result.get("warning")
+            if not analysis_result.get("error"):
+                analysis_result["error"] = str(reason)
+            analysis_result["warning"] = str(reason)
+            logging.warning(
+                f"Analysis unavailable for user {user_id} — AI provider failed: {reason}"
+            )
+            from flask import make_response
+            resp = make_response(jsonify(analysis_result), 503)
+            return resp
+
+        # Cache the successful result only
         if use_cache:
             _set_cached_result(cache_key, analysis_result)
 
@@ -109,10 +129,21 @@ def analyze():
             logging.error(f"Failed to save analysis to Firebase (Analysis still returned): {fe}")
 
         logging.info(f"Analysis successful for user: {user_id}")
-        return jsonify(analysis_result), 200
+        from flask import make_response
+        resp = make_response(jsonify(analysis_result), 200)
+        return resp
+    except ValueError as ve:
+        # Malformed AI response / invalid JSON
+        logging.error(f"Route Analyze ValueError: {ve}")
+        from flask import make_response
+        resp = make_response(jsonify({"error": "Malformed AI response. Please try again."}), 502)
+        return resp
     except Exception as e:
+        # Unexpected backend exception
         logging.error(f"Route Analyze Error: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        from flask import make_response
+        resp = make_response(jsonify({"error": "Internal server error"}), 500)
+        return resp
 
 
 @analyze_bp.route('/generate', methods=['POST'])
@@ -120,12 +151,19 @@ def generate():
     """Generate an improved resume based on analysis."""
     try:
         data = request.json
+        if not data:
+            from flask import make_response
+            resp = make_response(jsonify({"error": "Invalid JSON payload"}), 400)
+            return resp
+        
         resume_text = data.get('resume_text')
         analysis = data.get('analysis')
         target_role = data.get('target_role', 'Software Engineer')
 
         if not resume_text:
-            return jsonify({"error": "resume_text is required"}), 400
+            from flask import make_response
+            resp = make_response(jsonify({"error": "resume_text is required"}), 400)
+            return resp
         if analysis is None:
             analysis = {}
 
@@ -136,10 +174,14 @@ def generate():
                 "generated_resume": "\n".join(l.strip() for l in resume_text.splitlines() if l.strip()),
                 "warning": str(result.get("error"))
             }
-        return jsonify(result), 200
+        from flask import make_response
+        resp = make_response(jsonify(result), 200)
+        return resp
     except Exception as e:
         logging.error(f"Route Generate Error: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        from flask import make_response
+        resp = make_response(jsonify({"error": "Internal server error"}), 500)
+        return resp
 
 
 @analyze_bp.route('/suggest', methods=['POST'])
@@ -147,13 +189,20 @@ def suggest():
     """Get AI suggestions for a specific resume section."""
     try:
         data = request.json
+        if not data:
+            from flask import make_response
+            resp = make_response(jsonify({"error": "Invalid JSON payload"}), 400)
+            return resp
+        
         section_type = data.get('section_type', 'summary')
         current_text = data.get('current_text', '')
         target_role = data.get('target_role', 'Software Engineer')
         resume_context = data.get('resume_context', '')
 
         if not current_text:
-            return jsonify({"error": "current_text is required"}), 400
+            from flask import make_response
+            resp = make_response(jsonify({"error": "current_text is required"}), 400)
+            return resp
 
         result = ai_service.suggest_improvement(section_type, current_text, target_role, resume_context)
         if "error" in result and "improved_version" not in result:
@@ -163,10 +212,14 @@ def suggest():
                 "suggestions": [],
                 "warning": str(result.get("error"))
             }
-        return jsonify(result), 200
+        from flask import make_response
+        resp = make_response(jsonify(result), 200)
+        return resp
     except Exception as e:
         logging.error(f"Route Suggest Error: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        from flask import make_response
+        resp = make_response(jsonify({"error": "Internal server error"}), 500)
+        return resp
 
 
 @analyze_bp.route('/regenerate', methods=['POST'])
@@ -174,6 +227,11 @@ def regenerate():
     """Re-analyze resume with custom user improvements applied."""
     try:
         data = request.json
+        if not data:
+            from flask import make_response
+            resp = make_response(jsonify({"error": "Invalid JSON payload"}), 400)
+            return resp
+        
         resume_text = data.get('resume_text')
         target_role = data.get('target_role', 'Software Engineer')
         custom_improvements = data.get('custom_improvements', '')
@@ -181,16 +239,26 @@ def regenerate():
         user_id = current_user['uid'] if current_user else (data.get('user_id') or 'anonymous')
 
         if not resume_text:
-            return jsonify({"error": "resume_text is required"}), 400
+            from flask import make_response
+            resp = make_response(jsonify({"error": "resume_text is required"}), 400)
+            return resp
 
         combined_text = f"{resume_text}\n\nUser Custom Improvements to apply:\n{custom_improvements}" if custom_improvements else resume_text
         analysis_result = ai_service.analyze_resume(combined_text, target_role)
-        if analysis_result.get("error"):
-            analysis_result["warning"] = str(analysis_result.pop("error"))
-            analysis_result["error"] = None
-
-        firebase_service.save_analysis(user_id, analysis_result)
-        return jsonify(analysis_result), 200
+        degraded = bool(analysis_result.get("error")) or bool(analysis_result.get("warning"))
+        if degraded:
+            reason = analysis_result.get("error") or analysis_result.get("warning")
+            if not analysis_result.get("error"):
+                analysis_result["error"] = str(reason)
+            analysis_result["warning"] = str(reason)
+            logging.warning(f"Regenerate unavailable for user {user_id} — not saved to history: {reason}")
+        else:
+            firebase_service.save_analysis(user_id, analysis_result)
+        from flask import make_response
+        resp = make_response(jsonify(analysis_result), 200)
+        return resp
     except Exception as e:
         logging.error(f"Route Regenerate Error: {e}")
-        return jsonify({"error": "Internal server error"}), 500
+        from flask import make_response
+        resp = make_response(jsonify({"error": "Internal server error"}), 500)
+        return resp

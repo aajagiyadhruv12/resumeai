@@ -134,7 +134,7 @@ function App() {
   // Health endpoint lives at the server root, not under /api.
   useEffect(() => {
     const healthUrl = `${(process.env.REACT_APP_API_URL || "https://resumeai-fj7h.onrender.com/api").replace(/\/api\/?$/, '')}/health`;
-    const ping = () => fetch(healthUrl).catch(() => {});
+    const ping = () => fetch(healthUrl, { mode: 'no-cors' }).catch(() => {});
     ping();
     const keepAlive = setInterval(ping, 10 * 60 * 1000);
     return () => clearInterval(keepAlive);

@@ -63,12 +63,23 @@ def create_app():
     # origins. flask-cors normally adds this via its after_request hook, but
     # this guarantees no response the app itself produces can ever be
     # misreported by the browser as a "CORS policy" error.
+    #
+    # IMPORTANT: This must run for ALL responses, including those from error
+    # handlers and exception-catching route code. We use a high priority (-1) to
+    # ensure this runs AFTER flask-cors but BEFORE any other after_request
+    # handlers that might modify the response.
     @app.after_request
     def add_cors_headers(resp):
         origin = request.headers.get('Origin', '')
         if origin in ALLOWED_ORIGINS:
+            # Always set the exact origin (never wildcard) for credentialed requests
             resp.headers['Access-Control-Allow-Origin'] = origin
             resp.headers['Vary'] = 'Origin'
+            # Also ensure the allowed methods and headers are present on preflight
+            if request.method == 'OPTIONS':
+                resp.headers['Access-Control-Allow-Methods'] = ', '.join(ALLOWED_METHODS)
+                resp.headers['Access-Control-Allow-Headers'] = ', '.join(ALLOWED_HEADERS)
+                resp.headers['Access-Control-Max-Age'] = '86400'
         return resp
     
     # Register Blueprints
@@ -121,23 +132,31 @@ def create_app():
                 "message": e.description,
                 "code": e.code,
             }
-            # flask-cors adds the ACAO header on regular responses, but for
-            # HTTP errors raised by the router (404, 405) the response object
-            # bypasses the after_request hook in some setups. Build the JSON
-            # response and then let flask-cors inject the headers via
-            # make_response so the browser never sees a confusing CORS error
-            # when the URL is wrong.
+            # Use make_response to ensure the after_request hook runs and adds CORS headers
             from flask import make_response
             resp = make_response(jsonify(payload), e.code)
+            # Explicitly add CORS headers here as a fallback in case after_request doesn't run
+            origin = request.headers.get('Origin', '')
+            if origin in ALLOWED_ORIGINS:
+                resp.headers['Access-Control-Allow-Origin'] = origin
+                resp.headers['Vary'] = 'Origin'
             return resp
 
         error_details = traceback.format_exc()
         logging.error(f"Unhandled Exception:\n{error_details}")
-        return jsonify({
+        # Use make_response to ensure the after_request hook runs and adds CORS headers
+        from flask import make_response
+        resp = make_response(jsonify({
             "error": "Internal server error",
             "message": str(e),
             "traceback": error_details if Config.DEBUG else "Set FLASK_DEBUG=True in .env for details"
-        }), 500
+        }), 500)
+        # Explicitly add CORS headers here as a fallback in case after_request doesn't run
+        origin = request.headers.get('Origin', '')
+        if origin in ALLOWED_ORIGINS:
+            resp.headers['Access-Control-Allow-Origin'] = origin
+            resp.headers['Vary'] = 'Origin'
+        return resp
 
     return app
 

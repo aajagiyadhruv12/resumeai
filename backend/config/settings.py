@@ -14,12 +14,11 @@ class Config:
     FIREBASE_CLIENT_EMAIL = os.getenv('FIREBASE_CLIENT_EMAIL')
     FIREBASE_STORAGE_BUCKET = os.getenv('FIREBASE_STORAGE_BUCKET', '')
     
-    # OpenAI Settings
-    OPENAI_API_KEY = os.getenv('OPENAI_API_KEY')
-    
-    # Gemini Settings (Keeping as fallback or primary if requested)
+    # Gemini Settings (primary AI provider)
     GOOGLE_API_KEY = os.getenv('GOOGLE_API_KEY')
+    # Optional comma-separated override for the Gemini model ladder, e.g.
+    # "gemini-3.6-flash,gemini-3.5-flash". Defaults are set in AIService.
+    GEMINI_MODEL = os.getenv('GEMINI_MODEL', '')
     
-    # SambaNova Settings
-    SAMBANOVA_API_KEY = os.getenv('SAMBANOVA_API_KEY')
-    SAMBANOVA_BASE_URL = os.getenv('SAMBANOVA_BASE_URL', 'https://api.sambanova.ai/v1')
+    # Groq API key (fallback AI provider)
+    GROQ_API_KEY = os.getenv('GROQ_API_KEY')

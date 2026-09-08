@@ -1,187 +1,304 @@
-import google.generativeai as genai
-from openai import OpenAI
-import httpx
 import json
 import logging
 import time
+import httpx
 from config.settings import Config
 
 
 class AIService:
+    """Resume analysis engine backed by Google Gemini AI.
+
+    Primary provider: Google Gemini (gemini-3.6-flash, then gemini-3.5-flash).
+    Fallback provider: Groq (OpenAI-compatible endpoint).
+    No OpenAI or SambaNova dependency - budget-friendly implementation.
+    Gemini 3 flash models think by default; thinkingLevel is set to "low" to
+    keep latency and cost down while leaving the full output budget for the
+    report JSON.
+    """
+
+    # Explicit, current stable Gemini models only. -latest aliases are hot-swapped
+    # moving targets, so pinned versions are used instead. Override with the
+    # GEMINI_MODEL env var (comma-separated) if your key needs a different set.
+    GEMINI_MODELS = [
+        m.strip()
+        for m in (Config.GEMINI_MODEL or "gemini-3.6-flash,gemini-3.5-flash").split(",")
+        if m.strip()
+    ]
+
     def __init__(self):
         self._gemini_ready = False
-        self._openai_ready = False
-        self._openai_client = None
-        self._sambanova_ready = False
-        self._sambanova_client = None
+        self._groq_ready = False
 
-        # Initialize Gemini
+        # Initialize Gemini (called over REST below; no SDK needed)
         try:
             if Config.GOOGLE_API_KEY:
-                genai.configure(api_key=Config.GOOGLE_API_KEY)
                 self._gemini_ready = True
                 logging.info("Gemini configured successfully.")
             else:
-                logging.error("GOOGLE_API_KEY missing.")
+                logging.info("GOOGLE_API_KEY not configured - skipping Gemini")
         except Exception as e:
             logging.error(f"Gemini init error: {e}")
 
-        # Initialize OpenAI as fallback
+        # Initialize Groq (OpenAI-compatible fallback)
         try:
-            if Config.OPENAI_API_KEY:
-                self._openai_client = OpenAI(api_key=Config.OPENAI_API_KEY)
-                self._openai_ready = True
-                logging.info("OpenAI configured as fallback.")
+            if Config.GROQ_API_KEY:
+                self._groq_client = httpx.AsyncClient()
+                self._groq_ready = True
+                logging.info("Groq configured successfully.")
             else:
-                logging.error("OPENAI_API_KEY missing for fallback.")
+                logging.info("GROQ_API_KEY not configured - skipping Groq")
         except Exception as e:
-            logging.error(f"OpenAI init error: {e}")
+            logging.error(f"Groq init error: {e}")
 
-        # Initialize SambaNova as third fallback
-        try:
-            if Config.SAMBANOVA_API_KEY:
-                self._sambanova_client = httpx.Client(
-                    base_url=Config.SAMBANOVA_BASE_URL,
-                    headers={"Authorization": f"Bearer {Config.SAMBANOVA_API_KEY}"},
-                    timeout=120.0
-                )
-                self._sambanova_ready = True
-                logging.info("SambaNova configured as fallback.")
-            else:
-                logging.error("SAMBANOVA_API_KEY missing.")
-        except Exception as e:
-            logging.error(f"SambaNova init error: {e}")
+    def _generate_text(self, prompt, is_json=True, purpose="analysis"):
+        """Try Gemini models (primary -> fallback -> Groq).
 
-    def _call_gemini(self, prompt, is_json=True):
-        models = [
-            'gemini-2.5-flash',
-            'gemini-2.0-flash',
-            'gemini-flash-latest',
-            'gemini-1.5-flash',
-        ]
-        
-        # Configure generation config with JSON mode if requested
-        generation_config = {
-            "temperature": 0.1,
-            "top_p": 0.95,
-            "max_output_tokens": 16384,
-        }
-        if is_json:
-            generation_config["response_mime_type"] = "application/json"
+        No retries, no sleeps: quota/billing errors never recover on retry.
+        Returns provider text or raises exception.
+        """
+        attempts = []
+        if self._gemini_ready:
+            for model_name in self.GEMINI_MODELS:
+                attempts.append(("Gemini-" + model_name, lambda mn=model_name: self._call_gemini(prompt, is_json, mn)))
 
-        last_error = ""
-        for model_name in models:
-            for attempt in range(2):
-                try:
-                    logging.info(f"Trying Gemini model: {model_name} (attempt {attempt + 1})")
-                    model = genai.GenerativeModel(model_name)
-                    
-                    safety_settings = [
-                        {"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_NONE"},
-                        {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_NONE"},
-                        {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"},
-                        {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_NONE"},
-                    ]
-                    
-                    response = model.generate_content(
-                        prompt, 
-                        generation_config=generation_config,
-                        safety_settings=safety_settings
-                    )
-                    
-                    if response and response.text:
-                        text = response.text.strip()
-                        if len(text) > 5: 
-                            return text
-                    
-                    logging.warning(f"Model {model_name} returned empty response.")
-                    break 
-                except Exception as e:
-                    last_error = str(e)
-                    if '429' in last_error:
-                        logging.warning(f"{model_name} rate limited, waiting 5s...")
-                        time.sleep(5)
-                    elif '404' in last_error or 'not found' in last_error.lower():
-                        logging.warning(f"Model {model_name} not available.")
-                        break 
-                    else:
-                        logging.warning(f"{model_name} error: {last_error}")
-                        break 
-        # If Gemini fails, try OpenAI fallback
-        if self._openai_ready:
-            try:
-                return self._call_openai(prompt, is_json)
-            except Exception as openai_err:
-                logging.warning(f"OpenAI failed: {openai_err}")
-                # Try SambaNova if OpenAI fails
-                if self._sambanova_ready:
-                    return self._call_sambanova(prompt, is_json)
-                raise openai_err
+        if self._groq_ready:
+            attempts.append(("Groq", lambda: self._call_groq(prompt, is_json)))
 
-        raise Exception(f"AI Connection Error. Please verify your GOOGLE_API_KEY in Render settings. (Last error: {last_error})")
-
-    def _call_openai(self, prompt, is_json=True):
-        """Fallback to OpenAI when Gemini fails."""
-        try:
-            logging.info("Trying OpenAI GPT-4o Mini as fallback")
-            response = self._openai_client.chat.completions.create(
-                model="gpt-4o-mini",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.1,
-                max_tokens=16384
+        if not attempts:
+            raise Exception(
+                "No AI provider is configured. Set GOOGLE_API_KEY and/or GROQ_API_KEY in the backend environment."
             )
 
+        last_error = ""
+        for name, call in attempts:
+            try:
+                text = call()
+                if text and len(text.strip()) > 5:
+                    logging.info("%s provider succeeded (%s)", name, purpose)
+                    return text
+                last_error = f"{name}: returned an empty response"
+                logging.warning("%s provider returned empty (%s)", name, purpose)
+            except Exception as e:
+                last_error = f"{name}: {e}"
+                logging.warning("%s provider failed (%s): %s", name, purpose, e)
+        raise Exception(f"All AI providers failed. Last error: {last_error}")
+
+    def _call_gemini(self, prompt, is_json=True, model_name="gemini-3.6-flash"):
+        """Call Google Gemini over REST for a specific model.
+
+        Gemini 3 flash models think by default; thinkingLevel "low" is set in
+        _gemini_generate to minimize latency and cost. Only explicit, current
+        stable models are used — gemini-2.x is shut down / unavailable to new
+        keys, and -latest aliases are hot-swapped moving targets.
+        """
+        last_error = ""
+        try:
+            return self._gemini_generate(model_name, prompt, is_json)
+        except Exception as e:
+            last_error = f"{model_name}: {e}"
+            logging.warning("Gemini %s", last_error)
+        raise Exception(f"Gemini failed: {last_error}")
+
+    def _call_groq(self, prompt, is_json=True):
+        """Call Groq API (OpenAI-compatible endpoint).
+
+        Groq uses https://api.groq.com/openai/v1/chat/completions with
+        models like llama3-8b-8192, llama3-70b-8192, mixtral-8x7b-32768.
+        """
+        try:
+            payload = {
+                "model": "llama3-8b-8192",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.1,
+                "max_tokens": 16384,
+            }
+            if is_json:
+                payload["response_format"] = {"type": "json_object"}
+
+            response = self._groq_client.post(
+                "https://api.groq.com/openai/v1/chat/completions",
+                json=payload,
+                timeout=180.0,
+            )
+
+            if response.status_code != 200:
+                raise Exception(f"Groq returned status {response.status_code}")
+
+            data = response.json()
+            choices = data.get("choices") or []
+            text = ((choices[0].get("message") or {}).get("content") or "").strip() if choices else ""
+            if len(text) > 5:
+                return text
+            raise Exception("Groq returned an empty response")
+        except Exception as e:
+            raise Exception(f"Groq error: {e}")
+
+    def _gemini_generate(self, model_name, prompt, is_json):
+        """Single generateContent call against the REST API."""
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}],
+            "generationConfig": {
+                "temperature": 0.1,
+                "topP": 0.95,
+                # 16,384 is comfortably within the model's 65,536 output cap
+                # and far above what a full report JSON needs.
+                "maxOutputTokens": 16384,
+                # Gemini 3 flash can't have thinking turned fully off; "low"
+                # minimizes latency/cost and frees most of the output budget
+                # for the answer itself.
+                "thinkingConfig": {"thinkingLevel": "low"},
+            },
+        }
+        if is_json:
+            payload["generationConfig"]["responseMimeType"] = "application/json"
+        url = (
+            f"https://generativelanguage.googleapis.com/v1beta/models/"
+            f"{model_name}:generateContent"
+        )
+        try:
+            response = httpx.post(
+                url,
+                params={"key": Config.GOOGLE_API_KEY},
+                json=payload,
+                timeout=180.0,
+            )
+        except Exception as e:
+            raise Exception(f"Gemini request failed: {e}")
+
+        if response.status_code != 200:
+            message = ""
+            try:
+                error = response.json().get("error", {})
+                message = error.get("message") or error.get("status") or ""
+            except Exception:
+                message = response.text[:200]
+            raise Exception(
+                f"Gemini returned status {response.status_code}: {message}".rstrip(": ")
+            )
+
+        data = response.json()
+        try:
+            candidate = data["candidates"][0]
+        except (KeyError, IndexError):
+            raise Exception(f"Gemini returned no candidates: {str(data)[:300]}")
+
+        parts = candidate.get("content", {}).get("parts", [])
+        # Skip thinking parts (present when thought=True) so only real text is used.
+        text = "".join(
+            p.get("text", "")
+            for p in parts
+            if p.get("text") and not p.get("thought")
+        ).strip()
+        if not text:
+            raise Exception("Gemini returned an empty response")
+        if candidate.get("finishReason") == "MAX_TOKENS":
+            raise Exception("Gemini response truncated (MAX_TOKENS): output budget exceeded")
+        return text
+
+    def _call_openai(self, prompt, is_json=True):
+        """Call OpenAI gpt-4o-mini (single provider attempt, no recursion).
+
+        Uses response_format json_object when JSON is requested so the model
+        returns parseable JSON instead of fenced markdown text.
+        """
+        kwargs = dict(
+            model="gpt-4o-mini",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.1,
+            max_tokens=16384,
+        )
+        if is_json:
+            # JSON mode requires the word "json" in the messages; every JSON
+            # prompt built in this file already contains it.
+            kwargs["response_format"] = {"type": "json_object"}
+
+        logging.info("Trying OpenAI GPT-4o Mini as fallback")
+        try:
+            response = self._openai_client.chat.completions.create(**kwargs)
             if response and response.choices:
-                text = response.choices[0].message.content.strip()
+                text = (response.choices[0].message.content or "").strip()
                 if len(text) > 5:
                     logging.info("OpenAI fallback successful")
                     return text
-
-            raise Exception("OpenAI returned empty response")
+            raise Exception("OpenAI returned an empty response")
         except Exception as e:
-            logging.error(f"OpenAI fallback error: {e}")
-            # Try SambaNova as second fallback
-            if self._sambanova_ready:
-                return self._call_sambanova(prompt, is_json)
-            raise Exception(f"AI services unavailable. Gemini quota exceeded and OpenAI fallback failed: {e}")
+            # Include quota/billing context verbatim so the caller can report it.
+            if isinstance(e, Exception) and str(e):
+                raise Exception(f"OpenAI error: {e}")
+            raise
 
     def _call_sambanova(self, prompt, is_json=True):
-        """Fallback to SambaNova when OpenAI fails."""
+        """Call SambaNova (OpenAI-compatible endpoint, single attempt)."""
+        logging.info("Trying SambaNova as fallback")
+        body = {
+            "model": "DeepSeek-V3.1",
+            "messages": [{"role": "user", "content": prompt}],
+            "temperature": 0.1,
+            "max_tokens": 16384,
+        }
         try:
-            logging.info("Trying SambaNova as fallback")
-            response = self._sambanova_client.post(
-                "/chat/completions",
-                json={
-                    "model": "DeepSeek-V3.1",
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.1,
-                    "max_tokens": 16384
-                }
-            )
-            if response.status_code == 200:
-                data = response.json()
-                text = data.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-                if len(text) > 5:
-                    logging.info("SambaNova fallback successful")
-                    return text
-            raise Exception(f"SambaNova returned status {response.status_code}")
+            response = self._sambanova_client.post("/chat/completions", json=body)
         except Exception as e:
-            logging.error(f"SambaNova fallback error: {e}")
-            raise Exception(f"AI services unavailable. All providers failed: {e}")
+            raise Exception(f"SambaNova request failed: {e}")
+
+        if response.status_code == 200:
+            data = response.json()
+            choices = data.get("choices") or []
+            text = ((choices[0].get("message") or {}).get("content") or "").strip() if choices else ""
+            if len(text) > 5:
+                logging.info("SambaNova fallback successful")
+                return text
+            raise Exception("SambaNova returned an empty response")
+
+        detail = ""
+        try:
+            err = response.json().get("error")
+            detail = err.get("message") if isinstance(err, dict) else str(err)
+        except Exception:
+            detail = response.text[:200]
+        raise Exception(
+            f"SambaNova returned status {response.status_code}: {detail}".rstrip(": ")
+        )
 
     def analyze_resume(self, resume_text, target_role="Software Engineer"):
-        if not self._gemini_ready and not self._openai_ready and not self._sambanova_ready:
-            return self._fallback_analysis("AI service is not configured. Please contact the administrator.")
+        # Cap oversized inputs to prevent memory issues.
+        resume_text = (resume_text or "").strip()
+        resume_text = resume_text[:20000]
 
-        # Cap oversized inputs to prevent memory issues
-        resume_text = (resume_text or "")[:20000]
-        
-        if len(resume_text.strip()) < 50:
-            return self._fallback_analysis("Resume text too short for meaningful analysis. Please provide more content.")
+        if len(resume_text) < 50:
+            logging.warning("Rejected analysis: resume text too short (%d chars).", len(resume_text))
+            return self._ai_unavailable_error(
+                "Resume text too short for meaningful analysis. Please provide more content."
+            )
 
         start_time = time.time()
-        logging.info(f"Starting analysis for role: {target_role}")
-        
+        logging.info(
+            "Analysis requested | role=%s | text_chars=%d | gemini=%s openai=%s",
+            target_role, len(resume_text), self._gemini_ready, self._openai_ready,
+        )
+
+        # Always attempt a real AI analysis against the configured provider ladder.
+        try:
+            result = self._run_ai_analysis(resume_text, target_role, start_time)
+            logging.info(
+                "Analysis completed | role=%s | duration=%.2fs | score=%s ats=%s skills=%d strengths=%d",
+                target_role, time.time() - start_time,
+                result.get("overall_score"), result.get("ats_score"),
+                len(result.get("skills_extraction", {}).get("technical_skills") or []),
+                len(result.get("strengths") or []),
+            )
+            return result
+        except Exception as e:
+            elapsed = time.time() - start_time
+            logging.error(
+                "AI analysis failed after %.2fs | role=%s | error=%s",
+                elapsed, target_role, e,
+            )
+            return self._ai_unavailable_error(
+                f"AI analysis failed: {e}. Please try again in a few minutes."
+            )
+
+    def _run_ai_analysis(self, resume_text, target_role, start_time):
         # Enhanced prompt with detailed evaluation criteria and scoring rubric
         prompt = f"""You are an expert resume analyst, ATS specialist, and hiring manager with 15+ years of experience. 
 Analyze this resume THOROUGHLY for a {target_role} position. Provide specific, actionable, detailed feedback.
@@ -381,55 +498,193 @@ IMPORTANT INSTRUCTIONS:
 - If something is missing entirely, note it as a gap
 - Provide VALUE-ADDED insights beyond basic checklist items
 """
-        try:
-            # Try with Gemini first (better for detailed analysis)
-            text = self._call_gemini(prompt, is_json=True)
-            result = self._parse_json(text)
-            logging.info(f"Analysis completed in {time.time() - start_time:.2f} seconds")
-            return result
-        except Exception as e:
-            logging.warning(f"Gemini analysis failed, trying OpenAI: {e}")
-            # Try OpenAI as fallback (GPT-4 is excellent for resume analysis)
+        last_error = None
+        for attempt in range(2):
             try:
-                if self._openai_ready:
-                    text = self._call_openai(prompt, is_json=True)
-                    result = self._parse_json(text)
-                    logging.info(f"OpenAI analysis completed in {time.time() - start_time:.2f}s")
-                    return result
-            except Exception as openai_err:
-                logging.warning(f"OpenAI also failed: {openai_err}")
-            
-            # Last attempt with simplified prompt
-            logging.warning(f"Trying simplified prompt after failures")
-            try:
-                simple_prompt = f"""Analyze this resume for a {target_role} position. Be specific and detailed.
-
-Return JSON with these keys: overall_score (0-100), ats_score (0-100), professional_summary, final_verdict, 
-skills_extraction (technical_skills, soft_skills), skill_gap_analysis, experience_evaluation (career_level, years_of_experience, impact, weak_bullets, suggestions), 
-projects_evaluation (project_count, technical_depth, suggestions), education_evaluation, structure_formatting, 
-keyword_ats_optimization (missing_keywords, suggested_keywords), strengths, weaknesses, actionable_improvements, 
-job_role_matching (array of {{role, match_percentage, reason}}),
-bullet_point_rewriting (array of {{old, new}}).
-
-Be specific, reference exact examples, and provide actionable feedback.
-
-RESUME:
-{resume_text[:8000]}
-"""
-                text = self._call_gemini(simple_prompt, is_json=True)
+                # One pass through the provider ladder (Gemini -> OpenAI -> SambaNova).
+                # The old code re-tried OpenAI and then ran a second "simplified
+                # prompt" pass after every failure, doubling a ~50s dead wait when
+                # every provider was out of quota. Providers that return 402 /
+                # insufficient_quota never recover on retry, so provider-level
+                # failures are NOT retried below.
+                text = self._generate_text(
+                    prompt, is_json=True,
+                    purpose="analysis-retry" if attempt else "analysis",
+                )
                 result = self._parse_json(text)
-                logging.info(f"Simplified analysis succeeded in {time.time() - start_time:.2f}s")
+                logging.info(f"Analysis completed in {time.time() - start_time:.2f} seconds")
                 return result
-            except Exception as e2:
-                logging.error(f"All analysis attempts failed after {time.time() - start_time:.2f}s: {e2}")
-                return self._fallback_analysis("AI analysis encountered an issue. Basic scores shown. Please try again.")
+            except Exception as e:
+                msg = str(e)
+                logging.warning("Analysis attempt %d failed: %s", attempt + 1, msg)
+                last_error = e
+                # Fail fast when the whole ladder was down (quota/billing never
+                # recovers on retry). Only a malformed/truncated model response
+                # gets one fresh shot — that kind of glitch is often transient.
+                provider_down = (
+                    "failed" in msg or "No AI provider" in msg
+                )
+                if provider_down or attempt == 1:
+                    break
+        logging.error(f"All analysis attempts failed after {time.time() - start_time:.2f}s: {last_error}")
+        raise last_error  # bubble up to analyze_resume so we return a real error, not fake 50s
+
+    def _ai_unavailable_error(self, message):
+        """Return a clearly-labeled degraded response when all AI providers fail.
+
+        This is NOT a pretend analysis: scores default to 0 (not a masked 50),
+        text fields say the analysis is unavailable, and an 'error' field is set so
+        the frontend can distinguish 'AI failed' from 'AI succeeded with low scores'.
+        """
+        return {
+            "overall_score": 0,
+            "ats_score": 0,
+            "professional_summary": "AI analysis is unavailable. Make sure your GOOGLE_API_KEY is configured on the backend and that the AI provider has available quota.",
+            "final_verdict": "Analysis Unavailable",
+            "skills_extraction": {"technical_skills": [], "soft_skills": []},
+            "skill_gap_analysis": [],
+            "experience_evaluation": {
+                "career_level": "Unknown",
+                "years_of_experience": "Unknown",
+                "impact": "AI analysis unavailable",
+                "weak_bullets": [],
+                "suggestions": []
+            },
+            "projects_evaluation": {
+                "project_count": 0,
+                "technical_depth": "Unknown",
+                "suggestions": []
+            },
+            "education_evaluation": "AI analysis unavailable",
+            "structure_formatting": "AI analysis unavailable",
+            "keyword_ats_optimization": {
+                "missing_keywords": [],
+                "suggested_keywords": []
+            },
+            "strengths": [],
+            "weaknesses": [],
+            "actionable_improvements": [],
+            "job_role_matching": [],
+            "bullet_point_rewriting": [],
+            "error": message,
+            "warning": None,
+            "recruiter_scorecard": {
+                "overall_recommendation": "Unknown",
+                "hiring_difficulty": "Unknown",
+                "interview_recommendation": "Unknown",
+                "risk_indicators": [],
+                "strengths_for_recruiter": [],
+                "growth_potential": "Unknown"
+            },
+            "interview_readiness": {
+                "score": 0,
+                "coding_challenge_likelihood": "Unknown",
+                "technical_areas_strong": [],
+                "technical_areas_weak": [],
+                "behavioral_questions_likely": []
+            },
+            "career_trajectory": {
+                "trend": "Unknown",
+                "analysis": "AI analysis unavailable",
+                "red_flags": [],
+                "recommended_next_role": "Unknown"
+            },
+            "competitive_analysis": {
+                "market_position": "Unknown",
+                "unique_value_proposition": "AI analysis unavailable",
+                "differentiation_opportunities": []
+            },
+            "resume_brand_assessment": {
+                "consistent_message": False,
+                "career_narrative": "AI analysis unavailable",
+                "brand_gaps": []
+            },
+            "specificity_analysis": {
+                "score": 0,
+                "vague_statements": [],
+                "specific_alternatives": []
+            },
+            "quantified_achievements": {
+                "score": 0,
+                "analysis": "AI analysis unavailable",
+                "issues": [],
+                "examples_of_good_quantification": []
+            },
+            "action_verbs_analysis": {
+                "score": 0,
+                "strong_verbs": [],
+                "weak_verbs": [],
+                "suggestions": []
+            },
+            "leadership_indicators": {
+                "score": 0,
+                "detected": [],
+                "missing": []
+            },
+            "contact_info_check": {
+                "complete": False,
+                "missing": [],
+                "issues": ["AI analysis unavailable"]
+            },
+            "resume_length_analysis": {
+                "current_length": "Unknown",
+                "status": "Unknown",
+                "recommendations": []
+            },
+            "section_organization": {
+                "score": 0,
+                "issues": [],
+                "recommended_order": []
+            },
+            "keyword_density_analysis": {
+                "top_keywords": [],
+                "overused_keywords": [],
+                "missing_industry_terms": []
+            },
+            "industry_keywords": {
+                "score": 0,
+                "detected": [],
+                "missing": []
+            },
+            "remote_readiness": {
+                "score": 0,
+                "indicators": [],
+                "missing_remote_skills": []
+            },
+            "communication_skills": {
+                "score": 0,
+                "indicators": [],
+                "weaknesses": []
+            },
+            "impact_and_results": {
+                "score": 0,
+                "strong_impact_statements": [],
+                "weak_impact_statements": []
+            },
+            "ats_formatting_check": {
+                "score": 0,
+                "issues": [],
+                "recommendations": []
+            },
+            "problem_solving_evidence": {
+                "score": 0,
+                "examples_found": [],
+                "missing_patterns": []
+            },
+            "enhanced_projects": {
+                "project_improvements": [],
+                "project_suggestions": []
+            },
+        }
 
     def _fallback_analysis(self, warning):
-        """Graceful degraded analysis returned instead of an error (prevents 422s for end users).
-        Provides basic template with guidance on what to look for."""
+        """Graceful degraded analysis returned instead of a 500 when AI truly fails.
+        This is a clearly-labeled unavailable response (scores default to 0, not a
+        masked 50), so the frontend can distinguish 'AI failed' from 'AI succeeded'.
+        """
         return {
-            "overall_score": 50,
-            "ats_score": 50,
+            "overall_score": 0,
+            "ats_score": 0,
             "professional_summary": "AI analysis is temporarily unavailable. Please review your resume manually using these guidelines: (1) Ensure your resume has a clear professional summary (2-3 sentences). (2) Use strong action verbs: Led, Built, Developed, Created, Implemented, Optimized. (3) Quantify achievements with metrics: increased X by Y%, saved $Z, reduced time by N%. (4) Include relevant keywords for your target role throughout. (5) Structure: Contact Info, Summary, Skills, Experience, Projects, Education. (6) Use bullet points (not paragraphs) for experience and projects. (7) Keep it to 1-2 pages maximum. (8) Proofread carefully for typos and inconsistencies. (9) Add links: LinkedIn, GitHub, portfolio website if applicable. (10) Tailor your resume for each specific job application.",
             "final_verdict": "Manual Review Required",
             "skills_extraction": {"technical_skills": [], "soft_skills": []},
@@ -649,10 +904,8 @@ STRICT RULES:
 - Return ONLY the resume text, no markdown, no explanation
 """
         try:
-            # CRITICAL FIX: Call with is_json=False because this prompt asks for plain text, not JSON.
-            # When is_json=True (default), Gemini sets response_mime_type to "application/json"
-            # which causes the model to fail on non-JSON prompts.
-            text = self._call_gemini(prompt, is_json=False)
+            # is_json=False because this prompt asks for plain text, not JSON.
+            text = self._generate_text(prompt, is_json=False, purpose="generation")
             if text.startswith("```"):
                 text = text.split("\n", 1)[-1].rsplit("```", 1)[0].strip()
             return {"generated_resume": text}
@@ -664,7 +917,7 @@ STRICT RULES:
 
 RESUME:
 {resume_text[:3000]}"""
-                text = self._call_gemini(fallback_prompt, is_json=False)
+                text = self._generate_text(fallback_prompt, is_json=False, purpose="generation-fallback")
                 if text and len(text) > 50:
                     return {"generated_resume": text}
             except:
@@ -745,48 +998,94 @@ Return JSON with:
             prompt += f"\n\nResume Context:\n{resume_context[:1000]}"
 
         try:
-            text = self._call_gemini(prompt, is_json=True)
+            text = self._generate_text(prompt, is_json=True, purpose="suggestion")
             result = self._parse_json(text)
             return result
         except Exception as e:
             logging.error(f"Suggestion failed: {e}")
             return {"error": str(e), "improved_version": current_text, "suggestions": []}
 
+    @staticmethod
+    def _extract_json_object(text):
+        """Extract the first balanced top-level JSON object/array.
+
+        Braces inside quoted strings are ignored, so a response that trails
+        prose after the JSON (or truncates) can't corrupt the slice.
+        """
+        start = -1
+        for i, ch in enumerate(text):
+            if ch in "{[":
+                start = i
+                break
+        if start == -1:
+            return None
+        depth = 0
+        in_str = False
+        quote = None
+        escaped = False
+        for j in range(start, len(text)):
+            ch = text[j]
+            if in_str:
+                if escaped:
+                    escaped = False
+                elif ch == "\\":
+                    escaped = True
+                elif ch == quote:
+                    in_str = False
+            else:
+                if ch in '\"\'':
+                    in_str = True
+                    quote = ch
+                elif ch in "{[":
+                    depth += 1
+                elif ch in "}]":
+                    depth -= 1
+                    if depth == 0:
+                        return text[start:j + 1]
+        return None
+
     def _parse_json(self, text):
         try:
-            clean = text.strip()
-            # Remove markdown code blocks if present
+            clean = (text or "").strip()
+            if not clean:
+                raise Exception("AI returned an empty response")
+
+            # Remove markdown code fences if the provider wrapped the JSON
             if "```" in clean:
-                if "```json" in clean:
-                    clean = clean.split("```json")[1].split("```")[0].strip()
-                else:
-                    clean = clean.split("```")[1].split("```")[0].strip()
-            
-            # Find the actual JSON object start and end
-            start = clean.find("{")
-            end = clean.rfind("}") + 1
-            if start == -1 or end == 0:
-                logging.error(f"No JSON object found in text: {text[:200]}...")
+                # Content between the first and second fence marker
+                if clean.count("```") >= 2:
+                    clean = clean.split("```", 2)[1]
+                    if clean.startswith("json"):
+                        clean = clean[4:]
+                    clean = clean.strip()
+
+            obj = self._extract_json_object(clean)
+            if obj is None:
+                logging.error(f"No JSON object found in text: {clean[:200]}...")
                 raise ValueError("No valid JSON object found in AI response.")
-            
-            clean = clean[start:end]
-            
-            # Try to fix common JSON issues before parsing
+            clean = obj
+
             try:
                 data = json.loads(clean)
             except json.JSONDecodeError:
-                # Fix trailing commas (common AI issue)
                 import re
-                clean = re.sub(r',\s*}', '}', clean)
-                clean = re.sub(r',\s*]', ']', clean)
-                # Fix single quotes instead of double quotes
-                clean = re.sub(r"'([^']+)'\s*:", r'"\1":', clean)
-                clean = re.sub(r":\s*'([^']+)'", r':"\1"', clean)
+                # Fix trailing commas (common AI issue)
+                fixed = re.sub(r",\s*}", "}", clean)
+                fixed = re.sub(r",\s*]", "]", fixed)
                 try:
-                    data = json.loads(clean)
-                except json.JSONDecodeError as je:
-                    logging.error(f"JSON Decode Error after fixes: {je}. Text: {clean[:500]}")
-                    raise Exception("AI returned invalid JSON format. Please try again.")
+                    # strict=False tolerates raw newlines/tabs a model may
+                    # leave unescaped inside strings
+                    data = json.loads(fixed, strict=False)
+                except json.JSONDecodeError:
+                    # Last resort: tolerate single-quoted keys/values
+                    # (Python-dict-style output from a non-JSON-mode provider)
+                    fixed2 = re.sub(r"'([^']+)'\s*:", r'"\1":', clean)
+                    fixed2 = re.sub(r":\s*'([^']+)'", r':"\1"', fixed2)
+                    try:
+                        data = json.loads(fixed2, strict=False)
+                    except json.JSONDecodeError as je:
+                        logging.error(f"JSON Decode Error after fixes: {je}. Text: {clean[:500]}")
+                        raise Exception("AI returned invalid JSON format. Please try again.")
 
             # Define defaults for ALL keys the frontend expects (including advanced)
             defaults = {

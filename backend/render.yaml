@@ -16,9 +16,8 @@ services:
         value: "resumeai-secret-key-12345"
       - key: FIREBASE_PROJECT_ID
         value: "resumeai-9"
-      # Set these in Render Dashboard with your actual keys:
-      # - GOOGLE_API_KEY
-      # - OPENAI_API_KEY
-      # - SAMBANOVA_API_KEY
-      # - FIREBASE_PRIVATE_KEY
+# Set these in Render Dashboard with your actual keys:
+# - GOOGLE_API_KEY
+# - GROQ_API_KEY
+# - FIREBASE_PRIVATE_KEY
       # - FIREBASE_CLIENT_EMAIL

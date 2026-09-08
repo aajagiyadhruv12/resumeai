@@ -17,18 +17,28 @@ def register():
     confirm_password = data.get('confirm_password')
 
     if confirm_password is not None and confirm_password != password:
-        return jsonify({'error': 'Passwords do not match.'}), 400
+        from flask import make_response
+        resp = make_response(jsonify({'error': 'Passwords do not match.'}), 400)
+        return resp
     if not full_name:
-        return jsonify({'error': 'Full name is required.'}), 400
+        from flask import make_response
+        resp = make_response(jsonify({'error': 'Full name is required.'}), 400)
+        return resp
     if not email or not password:
-        return jsonify({'error': 'Email and password are required.'}), 400
+        from flask import make_response
+        resp = make_response(jsonify({'error': 'Email and password are required.'}), 400)
+        return resp
     if len(password) < 6:
-        return jsonify({'error': 'Password must be at least 6 characters long.'}), 400
+        from flask import make_response
+        resp = make_response(jsonify({'error': 'Password must be at least 6 characters long.'}), 400)
+        return resp
 
     try:
         from firebase_admin import _apps
         if not _apps:
-            return jsonify({'error': 'Firebase is not configured on the server.'}), 503
+            from flask import make_response
+            resp = make_response(jsonify({'error': 'Firebase is not configured on the server.'}), 503)
+            return resp
 
         from firebase_admin import auth as firebase_auth
         user = firebase_auth.create_user(
@@ -37,17 +47,64 @@ def register():
             display_name=full_name or None,
         )
         logging.info(f"New user registered: {user.uid} ({email})")
-        return jsonify({
+        from flask import make_response
+        resp = make_response(jsonify({
             'uid': user.uid,
             'email': user.email or email,
             'full_name': full_name,
-        }), 201
+        }), 201)
+        return resp
+    except ValueError as e:
+        # Firebase Admin raises ValueError for malformed input (bad email,
+        # too-short password, ...). That is the CALLER's mistake, not a server
+        # fault: answer 400 with the actual reason so the signup form can show
+        # it, instead of a 500 that reads as "the site is broken" and pushes the
+        # frontend into its client-SDK fallback for an input it will also reject.
+        msg = str(e)
+        if 'email' in msg.lower():
+            friendly = 'Please enter a valid email address.'
+            field = 'email'
+        elif 'password' in msg.lower():
+            friendly = 'Password must be at least 6 characters long.'
+            field = 'password'
+        else:
+            friendly = msg
+            field = None
+        logging.info(f"Register rejected (invalid input): {msg}")
+        from flask import make_response
+        body = {'error': friendly}
+        if field:
+            body['details'] = {field: friendly}
+        resp = make_response(jsonify(body), 400)
+        return resp
     except Exception as e:
         msg = str(e)
         if 'EMAIL_EXISTS' in msg or 'email-already-exists' in msg:
-            return jsonify({'error': 'An account with this email already exists.'}), 409
+            from flask import make_response
+            resp = make_response(jsonify({'error': 'An account with this email already exists.'}), 409)
+            return resp
+        # Identity Toolkit rejects some input only server-side (e.g. "a@b" parses
+        # as an address but is not a valid email). Those arrive as
+        # InvalidArgumentError, not ValueError — still a 400, not a 500.
+        REST_INPUT_ERRORS = {
+            'INVALID_EMAIL': ('Please enter a valid email address.', 'email'),
+            'MISSING_EMAIL': ('Email is required.', 'email'),
+            'WEAK_PASSWORD': ('Password must be at least 6 characters long.', 'password'),
+            'INVALID_PASSWORD': ('Password must be at least 6 characters long.', 'password'),
+            'MISSING_PASSWORD': ('Password is required.', 'password'),
+        }
+        for token, (friendly, field) in REST_INPUT_ERRORS.items():
+            if token in msg:
+                logging.info(f"Register rejected (invalid input): {msg}")
+                from flask import make_response
+                resp = make_response(
+                    jsonify({'error': friendly, 'details': {field: friendly}}), 400
+                )
+                return resp
         logging.error(f"Register error: {e}")
-        return jsonify({'error': 'Registration failed. Please try again.'}), 500
+        from flask import make_response
+        resp = make_response(jsonify({'error': 'Registration failed. Please try again.'}), 500)
+        return resp
 
 
 @auth_bp.route('/auth/me', methods=['GET'])
@@ -55,5 +112,9 @@ def me():
     """Return the profile of the currently authenticated user (from Bearer token)."""
     user = get_current_user()
     if not user:
-        return jsonify({'error': 'Unauthorized'}), 401
-    return jsonify(user), 200
+        from flask import make_response
+        resp = make_response(jsonify({'error': 'Unauthorized'}), 401)
+        return resp
+    from flask import make_response
+    resp = make_response(jsonify(user), 200)
+    return resp
