@@ -12,12 +12,18 @@ services:
         value: "3.10.11"
       - key: FLASK_DEBUG
         value: "False"
-      - key: SECRET_KEY
-        value: "resumeai-secret-key-12345"
       - key: FIREBASE_PROJECT_ID
         value: "resumeai-9"
-# Set these in Render Dashboard with your actual keys:
-# - GOOGLE_API_KEY
-# - GROQ_API_KEY
-# - FIREBASE_PRIVATE_KEY
-      # - FIREBASE_CLIENT_EMAIL
+# Set these in Render Dashboard -> Environment (do NOT commit real values):
+#   REQUIRED (backend refuses to boot without them):
+#     - SECRET_KEY          (any long random string)
+#     - ADMIN_JWT_SECRET    (any long random string, different from SECRET_KEY)
+#   AI providers (at least one required for analysis):
+#     - GOOGLE_API_KEY
+#     - GROQ_API_KEY
+#   Firebase (needed for history/registration/storage):
+#     - FIREBASE_PRIVATE_KEY
+#     - FIREBASE_CLIENT_EMAIL
+#     - FIREBASE_STORAGE_BUCKET
+#   Optional:
+#     - ALLOWED_ORIGINS (comma-separated; defaults cover airesumer.qzz.io + localhost)
