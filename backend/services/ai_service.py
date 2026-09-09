@@ -25,28 +25,62 @@ class AIService:
         if m.strip()
     ]
 
+    @staticmethod
+    def _is_placeholder_key(key):
+        """Detect placeholder/example API keys so they never reach the provider.
+
+        A key like "your-gemini-api-key-here" in .env previously slipped through
+        the plain truthiness check, was sent to Google, and came back as a
+        generic 400 "API key not valid" — masking the real problem (nobody
+        filled in the key). Placeholders are treated as "not configured".
+        """
+        if not key:
+            return True
+        k = key.strip().lower()
+        if len(k) < 20:
+            return True
+        for marker in (
+            "your-", "your_", "xxx", "placeholder", "changeme", "change-me",
+            "example", "todo", "fixme", "<", ">", "insert", "paste",
+            "apikey", "api-key-here",
+        ):
+            if marker in k:
+                return True
+        return False
+
     def __init__(self):
         self._gemini_ready = False
         self._groq_ready = False
 
         # Initialize Gemini (called over REST below; no SDK needed)
         try:
-            if Config.GOOGLE_API_KEY:
+            if self._is_placeholder_key(Config.GOOGLE_API_KEY):
+                logging.warning(
+                    "GOOGLE_API_KEY is not set (or is still a placeholder like 'your-gemini-api-key'). "
+                    "Get a real key at https://aistudio.google.com/apikey and put it in backend/.env "
+                    "as GOOGLE_API_KEY=... - skipping Gemini."
+                )
+            else:
                 self._gemini_ready = True
                 logging.info("Gemini configured successfully.")
-            else:
-                logging.info("GOOGLE_API_KEY not configured - skipping Gemini")
         except Exception as e:
             logging.error(f"Gemini init error: {e}")
 
         # Initialize Groq (OpenAI-compatible fallback)
         try:
-            if Config.GROQ_API_KEY:
-                self._groq_client = httpx.AsyncClient()
+            if self._is_placeholder_key(Config.GROQ_API_KEY):
+                logging.warning(
+                    "GROQ_API_KEY is not set (or is still a placeholder). "
+                    "Get a real key at https://console.groq.com/keys - skipping Groq."
+                )
+            else:
+                # Synchronous client: _call_groq runs inside sync route code.
+                # The previous AsyncClient here made every Groq call return a
+                # coroutine object, failing with "'coroutine' object has no
+                # attribute 'status_code'".
+                self._groq_client = httpx.Client(timeout=180.0)
                 self._groq_ready = True
                 logging.info("Groq configured successfully.")
-            else:
-                logging.info("GROQ_API_KEY not configured - skipping Groq")
         except Exception as e:
             logging.error(f"Groq init error: {e}")
 
@@ -102,12 +136,12 @@ class AIService:
     def _call_groq(self, prompt, is_json=True):
         """Call Groq API (OpenAI-compatible endpoint).
 
-        Groq uses https://api.groq.com/openai/v1/chat/completions with
-        models like llama3-8b-8192, llama3-70b-8192, mixtral-8x7b-32768.
+        llama3-8b-8192 was shut down on 2026-08-16 (Groq deprecation); the
+        recommended replacement is openai/gpt-oss-20b.
         """
         try:
             payload = {
-                "model": "llama3-8b-8192",
+                "model": "openai/gpt-oss-20b",
                 "messages": [{"role": "user", "content": prompt}],
                 "temperature": 0.1,
                 "max_tokens": 16384,
@@ -462,7 +496,7 @@ IMPORTANT INSTRUCTIONS:
                 if provider_down or attempt == 1:
                     break
         logging.error(f"All analysis attempts failed after {time.time() - start_time:.2f}s: {last_error}")
-        raise last_error  # bubble up to analyze_resume so we return a real error, not fake 50s
+        raise last_error if last_error else Exception("AI analysis unavailable. All providers failed.")
 
     def _ai_unavailable_error(self, message):
         """Return a clearly-labeled degraded response when all AI providers fail.

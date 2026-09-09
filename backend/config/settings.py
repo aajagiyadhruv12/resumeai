@@ -4,8 +4,10 @@ from dotenv import load_dotenv
 load_dotenv()
 
 class Config:
-    # Flask Settings
-    SECRET_KEY = os.getenv('SECRET_KEY', 'dev-key-123')
+    # Flask Settings — SECRET_KEY must be set via environment variable
+    SECRET_KEY = os.getenv('SECRET_KEY')
+    if not SECRET_KEY:
+        raise ValueError("SECRET_KEY environment variable must be set")
     DEBUG = os.getenv('FLASK_DEBUG', 'False') == 'True'
     
     # Firebase Settings

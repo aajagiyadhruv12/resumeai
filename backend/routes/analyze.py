@@ -45,11 +45,19 @@ def _set_cached_result(cache_key, result):
 
 @analyze_bp.route('/status', methods=['GET'])
 def ai_status():
-    """Report which AI providers are configured (no secrets) — for debugging deployments."""
+    """Report which AI providers are configured (no secrets) — for debugging deployments.
+
+    Also flags placeholder keys (e.g. 'your-gemini-api-key' left in .env) so a
+    broken deployment is diagnosable from a single GET request.
+    """
     import firebase_admin
+    from config.settings import Config
+    from services.ai_service import AIService
     return jsonify({
         "gemini_configured": ai_service._gemini_ready,
         "groq_configured": ai_service._groq_ready,
+        "gemini_key_is_placeholder": AIService._is_placeholder_key(Config.GOOGLE_API_KEY),
+        "groq_key_is_placeholder": AIService._is_placeholder_key(Config.GROQ_API_KEY),
         # Firebase Admin state — when False, history/registration degrade
         # (token verification still works via Google's public certs).
         "firebase_admin_initialized": bool(firebase_admin._apps),

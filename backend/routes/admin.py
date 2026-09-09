@@ -20,10 +20,12 @@ ADMIN_EMAIL = os.getenv('ADMIN_EMAIL', 'admin@resumeai.com')
 ADMIN_PASSWORD = os.getenv('ADMIN_PASSWORD', 'Admin@1234')
 ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
 # Dedicated secret for signing admin JWTs. Falls back to SECRET_KEY, but a
-# separate ADMIN_JWT_SECRET env var is strongly recommended because SECRET_KEY
-# is committed in render.yaml and would otherwise let anyone forge an admin
-# token without the password.
-ADMIN_JWT_SECRET = os.getenv('ADMIN_JWT_SECRET', Config.SECRET_KEY)
+# separate ADMIN_JWT_SECRET env var is STRONGLY recommended because SECRET_KEY
+# should not be used for admin token signing (different purpose, security risk).
+# In production, always set ADMIN_JWT_SECRET explicitly in your environment.
+ADMIN_JWT_SECRET = os.getenv('ADMIN_JWT_SECRET')
+if not ADMIN_JWT_SECRET:
+    raise ValueError("ADMIN_JWT_SECRET environment variable must be set for admin functionality")
 
 
 def _client_ip():

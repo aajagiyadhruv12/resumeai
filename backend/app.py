@@ -14,11 +14,17 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 
 # CORS configuration — one source of truth shared by flask-cors and the
 # explicit preflight handler below, so the two can never drift apart.
-ALLOWED_ORIGINS = [
-    "https://airesumer.qzz.io",       # production frontend
-    "http://localhost:3000",           # local dev
-    "https://resumeai-fj7h.onrender.com",  # Render preview URL (also a valid origin)
-]
+# Origins can be overridden via ALLOWED_ORIGINS env var (comma-separated) for
+# easy deployment across different domains (Vercel, Render, etc.).
+_ALLOWED_ORIGINS_ENV = os.getenv('ALLOWED_ORIGINS')
+if _ALLOWED_ORIGINS_ENV:
+    ALLOWED_ORIGINS = [o.strip() for o in _ALLOWED_ORIGINS_ENV.split(',') if o.strip()]
+else:
+    ALLOWED_ORIGINS = [
+        "https://airesumer.qzz.io",       # production frontend
+        "http://localhost:3000",           # local dev
+        "https://resumeai-fj7h.onrender.com",  # Render preview URL (also a valid origin)
+    ]
 ALLOWED_METHODS = ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]
 ALLOWED_HEADERS = ["Content-Type", "Authorization", "X-Requested-With", "Accept"]
 
