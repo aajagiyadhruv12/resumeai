@@ -124,13 +124,28 @@ class AIService:
         _gemini_generate to minimize latency and cost. Only explicit, current
         stable models are used — gemini-2.x is shut down / unavailable to new
         keys, and -latest aliases are hot-swapped moving targets.
+
+        A 503 "high demand" or 429 rate-limit gets ONE retry after a short
+        pause — unlike quota/billing errors, those are transient.
         """
         last_error = ""
-        try:
-            return self._gemini_generate(model_name, prompt, is_json)
-        except Exception as e:
-            last_error = f"{model_name}: {e}"
-            logging.warning("Gemini %s", last_error)
+        for attempt in range(2):
+            try:
+                return self._gemini_generate(model_name, prompt, is_json)
+            except Exception as e:
+                last_error = f"{model_name}: {e}"
+                transient = (
+                    "status 503" in str(e)
+                    or "status 429" in str(e)
+                    or "high demand" in str(e).lower()
+                    or "overloaded" in str(e).lower()
+                )
+                if transient and attempt == 0:
+                    logging.warning("Gemini %s — transient, retrying once in 4s", last_error)
+                    time.sleep(4)
+                    continue
+                logging.warning("Gemini %s", last_error)
+                break
         raise Exception(f"Gemini failed: {last_error}")
 
     def _call_groq(self, prompt, is_json=True):
@@ -156,7 +171,17 @@ class AIService:
             )
 
             if response.status_code != 200:
-                raise Exception(f"Groq returned status {response.status_code}")
+                # Include the body: Groq returns 401 both for bad keys AND for
+                # datacenter-IP restrictions, which are otherwise impossible
+                # to tell apart.
+                body = ""
+                try:
+                    body = response.json().get("error", {}).get("message", "")
+                except Exception:
+                    body = response.text[:200]
+                raise Exception(
+                    f"Groq returned status {response.status_code}: {body}".rstrip(": ")
+                )
 
             data = response.json()
             choices = data.get("choices") or []
