@@ -7,16 +7,5 @@
       "source": "/api/(.*)",
       "destination": "https://resumeai-fj7h.onrender.com/api/$1"
     }
-  ],
-  "experimentalServices": {
-    "frontend": {
-      "root": "frontend",
-      "routePrefix": "/",
-      "framework": "create-react-app"
-    },
-    "backend": {
-      "root": "backend",
-      "routePrefix": "/_/backend"
-    }
-  }
+  ]
 }

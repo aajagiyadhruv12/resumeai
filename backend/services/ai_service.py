@@ -195,71 +195,6 @@ class AIService:
             raise Exception("Gemini response truncated (MAX_TOKENS): output budget exceeded")
         return text
 
-    def _call_openai(self, prompt, is_json=True):
-        """Call OpenAI gpt-4o-mini (single provider attempt, no recursion).
-
-        Uses response_format json_object when JSON is requested so the model
-        returns parseable JSON instead of fenced markdown text.
-        """
-        kwargs = dict(
-            model="gpt-4o-mini",
-            messages=[{"role": "user", "content": prompt}],
-            temperature=0.1,
-            max_tokens=16384,
-        )
-        if is_json:
-            # JSON mode requires the word "json" in the messages; every JSON
-            # prompt built in this file already contains it.
-            kwargs["response_format"] = {"type": "json_object"}
-
-        logging.info("Trying OpenAI GPT-4o Mini as fallback")
-        try:
-            response = self._openai_client.chat.completions.create(**kwargs)
-            if response and response.choices:
-                text = (response.choices[0].message.content or "").strip()
-                if len(text) > 5:
-                    logging.info("OpenAI fallback successful")
-                    return text
-            raise Exception("OpenAI returned an empty response")
-        except Exception as e:
-            # Include quota/billing context verbatim so the caller can report it.
-            if isinstance(e, Exception) and str(e):
-                raise Exception(f"OpenAI error: {e}")
-            raise
-
-    def _call_sambanova(self, prompt, is_json=True):
-        """Call SambaNova (OpenAI-compatible endpoint, single attempt)."""
-        logging.info("Trying SambaNova as fallback")
-        body = {
-            "model": "DeepSeek-V3.1",
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1,
-            "max_tokens": 16384,
-        }
-        try:
-            response = self._sambanova_client.post("/chat/completions", json=body)
-        except Exception as e:
-            raise Exception(f"SambaNova request failed: {e}")
-
-        if response.status_code == 200:
-            data = response.json()
-            choices = data.get("choices") or []
-            text = ((choices[0].get("message") or {}).get("content") or "").strip() if choices else ""
-            if len(text) > 5:
-                logging.info("SambaNova fallback successful")
-                return text
-            raise Exception("SambaNova returned an empty response")
-
-        detail = ""
-        try:
-            err = response.json().get("error")
-            detail = err.get("message") if isinstance(err, dict) else str(err)
-        except Exception:
-            detail = response.text[:200]
-        raise Exception(
-            f"SambaNova returned status {response.status_code}: {detail}".rstrip(": ")
-        )
-
     def analyze_resume(self, resume_text, target_role="Software Engineer"):
         # Cap oversized inputs to prevent memory issues.
         resume_text = (resume_text or "").strip()
@@ -273,8 +208,8 @@ class AIService:
 
         start_time = time.time()
         logging.info(
-            "Analysis requested | role=%s | text_chars=%d | gemini=%s openai=%s",
-            target_role, len(resume_text), self._gemini_ready, self._openai_ready,
+            "Analysis requested | role=%s | text_chars=%d | gemini=%s groq=%s",
+            target_role, len(resume_text), self._gemini_ready, self._groq_ready,
         )
 
         # Always attempt a real AI analysis against the configured provider ladder.
@@ -931,7 +866,7 @@ RESUME:
 
     def suggest_improvement(self, section_type, current_text, target_role, resume_context=""):
         """Generate AI suggestions for a specific resume section."""
-        if not self._gemini_ready and not self._openai_ready and not self._sambanova_ready:
+        if not self._gemini_ready and not self._groq_ready:
             return {"improved_version": current_text, "suggestions": ["AI suggestions are temporarily unavailable. Please try again later."]}
 
         prompts = {

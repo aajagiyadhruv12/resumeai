@@ -49,8 +49,7 @@ def ai_status():
     import firebase_admin
     return jsonify({
         "gemini_configured": ai_service._gemini_ready,
-        "openai_configured": ai_service._openai_ready,
-        "sambanova_configured": ai_service._sambanova_ready,
+        "groq_configured": ai_service._groq_ready,
         # Firebase Admin state — when False, history/registration degrade
         # (token verification still works via Google's public certs).
         "firebase_admin_initialized": bool(firebase_admin._apps),
