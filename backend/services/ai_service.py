@@ -9,7 +9,7 @@ class AIService:
     """Resume analysis engine backed by Google Gemini AI.
 
     Primary provider: Google Gemini (gemini-3.6-flash, then gemini-3.5-flash).
-    Fallback provider: Groq (OpenAI-compatible endpoint).
+    Fallback providers: Groq (OpenAI-compatible) and DeepSeek (OpenAI-compatible).
     No OpenAI or SambaNova dependency - budget-friendly implementation.
     Gemini 3 flash models think by default; thinkingLevel is set to "low" to
     keep latency and cost down while leaving the full output budget for the
@@ -51,6 +51,7 @@ class AIService:
     def __init__(self):
         self._gemini_ready = False
         self._groq_ready = False
+        self._deepseek_ready = False
 
         # Initialize Gemini (called over REST below; no SDK needed)
         try:
@@ -84,8 +85,22 @@ class AIService:
         except Exception as e:
             logging.error(f"Groq init error: {e}")
 
+        # Initialize DeepSeek (free OpenAI-compatible fallback)
+        try:
+            if self._is_placeholder_key(Config.DEEPSEEK_API_KEY):
+                logging.warning(
+                    "DEEPSEEK_API_KEY is not set (or is still a placeholder). "
+                    "Get a real key at https://platform.deepseek.com - skipping DeepSeek."
+                )
+            else:
+                self._deepseek_client = httpx.Client(timeout=180.0)
+                self._deepseek_ready = True
+                logging.info("DeepSeek configured successfully.")
+        except Exception as e:
+            logging.error(f"DeepSeek init error: {e}")
+
     def _generate_text(self, prompt, is_json=True, purpose="analysis"):
-        """Try Gemini models (primary -> fallback -> Groq).
+        """Try Gemini models (primary -> fallback -> Groq -> DeepSeek).
 
         No retries, no sleeps: quota/billing errors never recover on retry.
         Returns provider text or raises exception.
@@ -98,9 +113,12 @@ class AIService:
         if self._groq_ready:
             attempts.append(("Groq", lambda: self._call_groq(prompt, is_json)))
 
+        if self._deepseek_ready:
+            attempts.append(("DeepSeek", lambda: self._call_deepseek(prompt, is_json)))
+
         if not attempts:
             raise Exception(
-                "No AI provider is configured. Set GOOGLE_API_KEY and/or GROQ_API_KEY in the backend environment."
+                "No AI provider is configured. Set GOOGLE_API_KEY and/or GROQ_API_KEY and/or DEEPSEEK_API_KEY in the backend environment."
             )
 
         last_error = ""
@@ -191,6 +209,48 @@ class AIService:
             raise Exception("Groq returned an empty response")
         except Exception as e:
             raise Exception(f"Groq error: {e}")
+
+    def _call_deepseek(self, prompt, is_json=True):
+        """Call DeepSeek API (OpenAI-compatible endpoint).
+
+        DeepSeek offers a free tier with rate limits at api.deepseek.com.
+        The chat completions endpoint is OpenAI-compatible, so the same
+        request shape used for Groq works here with a different base URL.
+        """
+        try:
+            payload = {
+                "model": "deepseek-chat",
+                "messages": [{"role": "user", "content": prompt}],
+                "temperature": 0.1,
+                "max_tokens": 16384,
+            }
+            if is_json:
+                payload["response_format"] = {"type": "json_object"}
+
+            response = self._deepseek_client.post(
+                "https://api.deepseek.com/chat/completions",
+                json=payload,
+                timeout=180.0,
+            )
+
+            if response.status_code != 200:
+                body = ""
+                try:
+                    body = response.json().get("error", {}).get("message", "")
+                except Exception:
+                    body = response.text[:200]
+                raise Exception(
+                    f"DeepSeek returned status {response.status_code}: {body}".rstrip(": ")
+                )
+
+            data = response.json()
+            choices = data.get("choices") or []
+            text = ((choices[0].get("message") or {}).get("content") or "").strip() if choices else ""
+            if len(text) > 5:
+                return text
+            raise Exception("DeepSeek returned an empty response")
+        except Exception as e:
+            raise Exception(f"DeepSeek error: {e}")
 
     def _gemini_generate(self, model_name, prompt, is_json):
         """Single generateContent call against the REST API."""
@@ -925,7 +985,7 @@ RESUME:
 
     def suggest_improvement(self, section_type, current_text, target_role, resume_context=""):
         """Generate AI suggestions for a specific resume section."""
-        if not self._gemini_ready and not self._groq_ready:
+        if not self._gemini_ready and not self._groq_ready and not self._deepseek_ready:
             return {"improved_version": current_text, "suggestions": ["AI suggestions are temporarily unavailable. Please try again later."]}
 
         prompts = {

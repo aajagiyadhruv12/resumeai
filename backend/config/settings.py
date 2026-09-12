@@ -24,3 +24,6 @@ class Config:
     
     # Groq API key (fallback AI provider)
     GROQ_API_KEY = os.getenv('GROQ_API_KEY')
+
+    # DeepSeek API key (free OpenAI-compatible fallback)
+    DEEPSEEK_API_KEY = os.getenv('DEEPSEEK_API_KEY')

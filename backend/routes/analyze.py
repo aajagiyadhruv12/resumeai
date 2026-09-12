@@ -56,8 +56,10 @@ def ai_status():
     return jsonify({
         "gemini_configured": ai_service._gemini_ready,
         "groq_configured": ai_service._groq_ready,
+        "deepseek_configured": ai_service._deepseek_ready,
         "gemini_key_is_placeholder": AIService._is_placeholder_key(Config.GOOGLE_API_KEY),
         "groq_key_is_placeholder": AIService._is_placeholder_key(Config.GROQ_API_KEY),
+        "deepseek_key_is_placeholder": AIService._is_placeholder_key(Config.DEEPSEEK_API_KEY),
         # Firebase Admin state — when False, history/registration degrade
         # (token verification still works via Google's public certs).
         "firebase_admin_initialized": bool(firebase_admin._apps),
